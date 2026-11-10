@@ -10,3 +10,4 @@
 - Maintain and update the task checklist in `/Users/ismailawa/Documents/Projects/rewapay-cray/docs/task-checklist.md` for tracking task acceptance criteria.
 - **Execute tasks strictly one by one.** Never proceed to the next task without user confirmation.
 - Ensure 100% test pass rate (`npm test`) and zero compilation errors (`npm run build`) before marking any task completed.
+

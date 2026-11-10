@@ -46,3 +46,4 @@ export class CrayBeneficiary {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
+

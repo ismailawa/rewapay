@@ -43,3 +43,4 @@ After writing code for a task:
    - Check off acceptance criteria in [task-checklist.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/task-checklist.md).
 4. **Git Checkpoint:** Commit the task implementation with clear conventional commit messages.
 5. **Report to User:** Present the completed deliverables, test outcomes, and wait for user confirmation before starting the next task.
+

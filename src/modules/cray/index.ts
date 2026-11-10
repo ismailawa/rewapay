@@ -9,3 +9,4 @@ export * from './clients';
 export * from './entities';
 export * from './accounts';
 export * from './banks';
+export * from './transfers';

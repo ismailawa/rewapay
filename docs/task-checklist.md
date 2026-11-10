@@ -62,17 +62,17 @@
     - [x] Persists `CrayBeneficiary` with `ref_id` required for disbursements.
     - [x] REST controller endpoints `GET /cray/banks` and `POST /cray/banks/verify` operational.
 
-- [ ] **Task 5: Payouts / Transfers Initiation & Requery**
+- [x] **Task 5: Payouts / Transfers Initiation & Requery**
   - **Scope:** NGN payout disburse, status tracking, timeout safety, and failure recovery.
   - **Endpoints:** `POST /payout/disburse`, `GET /payout/requery/{transaction_id}`.
   - **Acceptance Criteria:**
-    - [ ] `POST /payout/disburse` sends `customer_reference`, `amount`, `account_number`, `bank_code`, `recipient_name`, `ref_id`, and `currency: "NGN"`.
-    - [ ] Idempotent reuse: repeated call with same reference returns original result without re-debiting.
-    - [ ] Auto-resolves `ref_id` via account lookup if not pre-validated.
-    - [ ] Critical timeout rule: ambiguous timeout preserves transaction in `PENDING` state; never marks failed or retries blindly.
-    - [ ] `getTransferStatus` requeries `GET /payout/requery/{transaction_id}` and maps `approved` -> `SUCCESSFUL`, `failed` -> `FAILED`.
-    - [ ] TypeORM entity `CrayTransfer` persisted.
-    - [ ] 100% unit tests passing for transfer service and controller.
+    - [x] `POST /payout/disburse` sends `customer_reference`, `amount`, `account_number`, `bank_code`, `recipient_name`, `ref_id`, and `currency: "NGN"`.
+    - [x] Idempotent reuse: repeated call with same reference returns original result without re-debiting.
+    - [x] Auto-resolves `ref_id` via account lookup if not pre-validated.
+    - [x] Critical timeout rule: ambiguous timeout preserves transaction in `PENDING` state; never marks failed or retries blindly.
+    - [x] `getTransferStatus` requeries `GET /payout/requery/{transaction_id}` and maps `approved` -> `SUCCESSFUL`, `failed` -> `FAILED`.
+    - [x] TypeORM entity `CrayTransfer` persisted with `@Optional()` repo injection for unit-test isolation.
+    - [x] 65/65 unit tests passing across 14 suites, zero build errors.
 
 - [ ] **Task 6: Collections & Hosted Checkout**
   - **Scope:** Hosted checkout initialization, status query, and virtual account collection requery.
@@ -118,3 +118,4 @@
     - [ ] `CrayService` exports clean in-process API matching Interface Contract v0.1.
     - [ ] End-to-end integration test suite simulating full payment lifecycles.
     - [ ] Documentation and module export verification for RewaPay backend.
+

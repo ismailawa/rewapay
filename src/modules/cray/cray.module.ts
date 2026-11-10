@@ -8,12 +8,20 @@ import { CrayApiClient } from './clients/cray-api.client';
 import { CrayCustomer } from './entities/cray-customer.entity';
 import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
 import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
+import { CrayTransfer } from './entities/cray-transfer.entity';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsService } from './accounts/accounts.service';
 import { BanksController } from './banks/banks.controller';
 import { BanksService } from './banks/banks.service';
+import { TransfersController } from './transfers/transfers.controller';
+import { TransfersService } from './transfers/transfers.service';
 
-const ENTITIES = [CrayCustomer, CrayVirtualAccount, CrayBeneficiary];
+const ENTITIES = [
+  CrayCustomer,
+  CrayVirtualAccount,
+  CrayBeneficiary,
+  CrayTransfer,
+];
 
 @Module({
   imports: [
@@ -21,7 +29,11 @@ const ENTITIES = [CrayCustomer, CrayVirtualAccount, CrayBeneficiary];
     EventEmitterModule.forRoot(),
     TypeOrmModule.forFeature(ENTITIES),
   ],
-  controllers: [AccountsController, BanksController],
+  controllers: [
+    AccountsController,
+    BanksController,
+    TransfersController,
+  ],
   providers: [
     {
       provide: CRAY_MODULE_OPTIONS,
@@ -31,12 +43,14 @@ const ENTITIES = [CrayCustomer, CrayVirtualAccount, CrayBeneficiary];
     CrayApiClient,
     AccountsService,
     BanksService,
+    TransfersService,
   ],
   exports: [
     CRAY_MODULE_OPTIONS,
     CrayApiClient,
     AccountsService,
     BanksService,
+    TransfersService,
     TypeOrmModule,
   ],
 })
@@ -58,13 +72,24 @@ export class CrayModule {
         EventEmitterModule.forRoot(),
         TypeOrmModule.forFeature(ENTITIES),
       ],
-      controllers: [AccountsController, BanksController],
-      providers: [customOptionsProvider, CrayApiClient, AccountsService, BanksService],
+      controllers: [
+        AccountsController,
+        BanksController,
+        TransfersController,
+      ],
+      providers: [
+        customOptionsProvider,
+        CrayApiClient,
+        AccountsService,
+        BanksService,
+        TransfersService,
+      ],
       exports: [
         CRAY_MODULE_OPTIONS,
         CrayApiClient,
         AccountsService,
         BanksService,
+        TransfersService,
         TypeOrmModule,
       ],
     };

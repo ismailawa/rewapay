@@ -26,3 +26,4 @@ export class BanksController {
     return this.banksService.validateBankAccount(dto);
   }
 }
+

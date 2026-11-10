@@ -1,3 +1,4 @@
 export * from './cray-customer.entity';
 export * from './cray-virtual-account.entity';
 export * from './cray-beneficiary.entity';
+export * from './cray-transfer.entity';

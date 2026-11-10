@@ -14,3 +14,4 @@ export class ValidateBankAccountDto {
   @IsOptional()
   customerId?: string;
 }
+
