@@ -147,3 +147,4 @@ describe('CrayApiClient', () => {
     expect(requestSpy).toHaveBeenCalledTimes(2);
   });
 });
+
