@@ -1,0 +1,97 @@
+# RewaPay × Cray Module Integration Status & Plan
+
+**Document Version:** 1.0.0  
+**Date:** 10 November 2026  
+**Module Type:** In-process NestJS Module (`@rewapay/cray` / `CrayModule`)  
+**Target Environment:** NestJS 11, TypeScript 5.7, Node.js 22, PostgreSQL  
+
+---
+
+## 1. Initial Plan Entry: Proposals for Open Decisions
+
+As required by the *RewaPay x Cray Interface Contract (v0.1)*, this initial entry details the proposals for the 5 open design decisions prior to building out the provider-facing operations.
+
+### Decision 1: Confirmation of Operation and Event Names
+- **Service Operations (`ICrayService`):**
+  - `createVirtualAccount(input)`: returns `{ accountNumber, accountName, bankName, bankCode?, status }` (or status: `"OTP_REQUIRED"`).
+  - `submitVirtualAccountOtp(input)`: returns `{ status }`.
+  - `getVirtualAccount(customerId)`: returns details or `null` (`NOT_FOUND`).
+  - `createFundingSession(input)`: returns `{ sessionId, paymentUrl, expiresAt }`.
+  - `getFundingStatus(reference)`: returns `{ status, amount, confirmedAt? }`.
+  - `listBanks()`: returns `[{ code, name }]`.
+  - `validateBankAccount(input)`: returns `{ accountName, refId? }`.
+  - `initiateTransfer(input)`: returns `{ transferId, status }`.
+  - `getTransferStatus(reference)`: returns `{ status, amount, failureReason? }`.
+  - `initiateRefund(input)`: returns `{ refundId, status }`.
+  - `getPlatformBalance(currency?)`: returns `{ currency, available, ledger? }`.
+- **Domain Events (`EventEmitter2`):**
+  - `funding.confirmed` (`{ eventId, customerId, walletId, reference, amount, currency, confirmedAt }`)
+  - `funding.failed` (`{ eventId, reference, reason, failedAt }`)
+  - `transfer.completed` (`{ eventId, transferId, reference, amount, currency, completedAt }`)
+  - `transfer.failed` (`{ eventId, transferId, reference, reason, failedAt }`)
+  - `refund.completed` (`{ eventId, refundId, reference, amount, currency, completedAt }`)
+
+### Decision 2: Provider Response Storage and Audit Retention
+- **Storage Strategy:** All provider interactions, webhook deliveries, and queries are persisted in dedicated PostgreSQL tables:
+  - `cray_webhook_events`: captures raw event headers, sanitized payload, verification status, and processing logs.
+  - `cray_transactions`: tracks state transitions, idempotency hashes, and sanitized provider responses.
+- **Data Minimization & Redaction:** Sensitive KYC and payment fields (BVN, NIN, OTP, Card PAN, CVV) are never written to plain text columns or log outputs.
+- **Retention Schedule:**
+  - Active transactional and webhook records: retained for 12 months for active reconciliation and dispute lookups.
+  - Audit archive: retained for 7 years in partitioned PostgreSQL cold storage to satisfy financial audit and regulatory requirements.
+
+### Decision 3: Reconciliation Schedule & Stuck Items Surfacing
+- **Reconciliation Cadence:**
+  - **Every 5 minutes:** Requery all transactions in `PENDING` or `PROCESSING` state older than 3 minutes via `GET /payout/requery/{transaction_id}` and `GET /api/query/{customer_reference}`.
+  - **Every 2 minutes:** Retry transiently failed webhook jobs with exponential backoff.
+  - **Hourly:** Fetch and snapshot Cray platform balance via `GET /api/balance?currency=NGN`.
+  - **Daily (01:00 UTC):** Comprehensive ledger-to-provider reconciliation report.
+- **Surfacing Stuck Items:**
+  - Any transaction in `PENDING` or `PROCESSING` for > 30 minutes is automatically escalated to status `UNKNOWN` / `REQUIRES_MANUAL_REVIEW` in `cray_reconciliation_records`.
+  - Emits an operational metric (`cray.reconciliation.stuck_items`) and alert for ops triage.
+
+### Decision 4: Refund Scope for First Release
+- **Recommendation:** **Deferred to Phase 2 (post-MVP).**
+- **Justification:** Cray's API currently documents `POST /api/v2/refund/initiate` without complete request/response schemas, settlement timing, or dispute lifecycle. The module includes the `initiateRefund` interface method and database schema, but keeps the execution gated by `CRAY_ENABLE_REFUNDS=false` until Cray finalizes sandbox contracts.
+
+### Decision 5: Amount Representation (NGN Decimal String vs Minor Units)
+- **Recommendation:** **Strict 2-decimal string NGN (e.g. `"100.00"`).**
+- **Justification:**
+  1. Conforms directly to the RewaPay Interface Contract Section 2 requirement: *"decimal string NGN, two decimal places, for example '100.00'. Never a float."*
+  2. Cray API endpoints accept amounts in major units (Naira).
+  3. Internally handled by `MoneyUtil` powered by `decimal.js` to ensure zero floating-point arithmetic errors.
+  4. Stored in PostgreSQL as `NUMERIC(18, 2)`.
+
+---
+
+## 2. Implementation Task Plan & Testing Pace
+
+The module is broken down into discrete, self-contained tasks. Each task is executed and verified independently.
+
+| Task # | Task Description | Status | Test Pace & Deliverables |
+| :--- | :--- | :--- | :--- |
+| **Task 1** | **Setup & Scaffolding via NestJS CLI** | **COMPLETED** | - Project scaffolded with `@nestjs/cli`<br>- Core configs, enums, interfaces, utilities (`MoneyUtil`, `ReferenceUtil`)<br>- Unit tests passing (`money.util.spec.ts`, `reference.util.spec.ts`, `cray.module.spec.ts`) |
+| **Task 2** | **Cray Client, ES256 Request Signing & Error Mapping** | Pending | - Typed HTTP client with rate-limiting (60 RPM general, 30 RPM financial)<br>- ES256 request signing using P-256/SHA-256 with DER Base64 formatting<br>- Canonical message test vectors & error normalization |
+| **Task 3** | **Customer & Virtual Accounts Management** | Pending | - Permanent NGN virtual accounts (`POST /api/virtual-accounts/create`)<br>- OTP submission (`POST /api/virtual-accounts/generate-wallet`)<br>- Account retrieval and TypeORM entities |
+| **Task 4** | **Bank Directory & Beneficiary Validation** | Pending | - Cached bank list (`GET /payout/banks?countryCode=NG`)<br>- Account name validation (`POST /payout/accounts/validate`)<br>- Beneficiary persistence and verification models |
+| **Task 5** | **Payouts / Transfers Initiation & Requery** | Pending | - Payout dispatch (`POST /payout/disburse` with exact `receipient_info` field)<br>- Status requery (`GET /payout/requery/{transaction_id}`)<br>- Requery-before-retry failure recovery |
+| **Task 6** | **Collections & Hosted Checkout** | Pending | - Hosted checkout initialization (`POST /api/checkout/initialize`)<br>- Checkout query (`GET /api/checkout/query/{reference}`)<br>- Virtual account collection query (`GET /api/query/{customer_reference}`) |
+| **Task 7** | **Webhook Processing & Cryptographic Verification** | Pending | - HMAC-SHA256 signature verification over `data` for collection webhooks<br>- IP allowlist check & authoritative requery for payin/payout webhooks<br>- Domain event emission (`funding.confirmed`, etc.) |
+| **Task 8** | **Idempotency & Database Persistence Layer** | Pending | - TypeORM entities (`cray_transactions`, `cray_idempotency`, `cray_customers`, etc.)<br>- Idempotent operation locking & request hash verification |
+| **Task 9** | **Reconciliation Engine & Balance Snapshots** | Pending | - Requery scheduler for pending/processing transactions<br>- Platform balance snapshot service (`GET /api/balance`)<br>- Stuck transaction anomaly detection |
+| **Task 10**| **Unified Service Facade (`ICrayService`) & Acceptance Suite** | Pending | - In-process service facade exporting full `ICrayService`<br>- End-to-end sandbox mock integration suite simulating full payment lifecycles |
+
+---
+
+## 3. Testing Pace & Strategy
+
+To ensure high financial precision and reliability, testing progresses at a defined pace across three tiers:
+
+1. **Unit Tests (Per Task):**
+   - Every utility, mapper, cryptographic signer, and service method includes isolated unit tests.
+   - Enforce 100% test pass rate before marking any task as complete.
+2. **Contract & Mock Provider Verification:**
+   - Provider HTTP calls are tested against simulated Cray API responses and error shapes using test vectors.
+   - Edge cases tested: network timeouts, HTTP 409 conflict on reused references, invalid HMACs, malformed numbers.
+3. **End-to-End In-Process Module Tests:**
+   - The consuming RewaPay wallet module interactions (`ICrayService` calls and `EventEmitter2` listeners) are tested end-to-end using NestJS testing modules with an in-memory/test database.
