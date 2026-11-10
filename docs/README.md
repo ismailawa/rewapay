@@ -3,6 +3,8 @@
 This folder contains the official API reference documentation retrieved from **https://docs.crayfi.com/v2** for offline reference, integration validation, and contract verification.
 
 - **Full Documentation Dump:** [cray-api-v2-docs.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/cray-api-v2-docs.md) (retrieved from `https://docs.crayfi.com/llms-full.txt`)
+- **Task Checklist & Acceptance Criteria:** [task-checklist.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/task-checklist.md)
+- **Roadmap & Progress Status:** [STATUS.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/STATUS.md)
 
 ---
 
@@ -52,3 +54,4 @@ This folder contains the official API reference documentation retrieved from **h
 
 ### 6. Balances
 - **Get Wallet Balance:** `GET /balance`
+
