@@ -103,14 +103,14 @@
     - [x] Concurrency-safe atomic transaction handling.
     - [x] 100% unit tests passing.
 
-- [ ] **Task 9: Reconciliation Engine & Platform Balance**
+- [x] **Task 9: Reconciliation Engine & Platform Balance**
   - **Scope:** Scheduled workers to reconcile pending transactions and record platform balances.
   - **Endpoints:** `GET /balance`.
   - **Acceptance Criteria:**
-    - [ ] Periodic requery of pending transfers and funding transactions.
-    - [ ] Hourly snapshot of Cray wallet balances (`GET /balance`).
-    - [ ] Flags transactions stuck > 30 minutes for operations review.
-    - [ ] 100% unit tests passing.
+    - [x] Periodic requery of pending transfers and funding transactions.
+    - [x] Hourly snapshot of Cray wallet balances (`GET /balance`).
+    - [x] Flags transactions stuck > 30 minutes for operations review.
+    - [x] 100% unit tests passing.
 
 - [ ] **Task 10: Unified Wallet Service Facade (`ICrayService`) & Acceptance Suite**
   - **Scope:** In-process facade service implementing `ICrayService` and end-to-end sandbox verification.

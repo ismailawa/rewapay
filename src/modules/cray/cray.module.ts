@@ -13,6 +13,8 @@ import { CrayCheckout } from './entities/cray-checkout.entity';
 import { CrayWebhookEvent } from './entities/cray-webhook-event.entity';
 import { CrayIdempotencyRecord } from './entities/cray-idempotency.entity';
 import { CrayTransactionRecord } from './entities/cray-transaction.entity';
+import { CrayBalanceSnapshot } from './entities/cray-balance-snapshot.entity';
+import { CrayReconciliationRecord } from './entities/cray-reconciliation-record.entity';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsService } from './accounts/accounts.service';
 import { BanksController } from './banks/banks.controller';
@@ -25,6 +27,8 @@ import { WebhooksController } from './webhooks/webhooks.controller';
 import { WebhooksService } from './webhooks/webhooks.service';
 import { WebhooksVerifier } from './webhooks/webhooks.verifier';
 import { IdempotencyService } from './idempotency/idempotency.service';
+import { ReconciliationController } from './reconciliation/reconciliation.controller';
+import { ReconciliationService } from './reconciliation/reconciliation.service';
 
 const ENTITIES = [
   CrayCustomer,
@@ -35,6 +39,8 @@ const ENTITIES = [
   CrayWebhookEvent,
   CrayIdempotencyRecord,
   CrayTransactionRecord,
+  CrayBalanceSnapshot,
+  CrayReconciliationRecord,
 ];
 
 @Module({
@@ -49,6 +55,7 @@ const ENTITIES = [
     TransfersController,
     CheckoutController,
     WebhooksController,
+    ReconciliationController,
   ],
   providers: [
     {
@@ -64,6 +71,7 @@ const ENTITIES = [
     WebhooksVerifier,
     WebhooksService,
     IdempotencyService,
+    ReconciliationService,
   ],
   exports: [
     CRAY_MODULE_OPTIONS,
@@ -75,6 +83,7 @@ const ENTITIES = [
     WebhooksVerifier,
     WebhooksService,
     IdempotencyService,
+    ReconciliationService,
     TypeOrmModule,
   ],
 })
@@ -102,6 +111,7 @@ export class CrayModule {
         TransfersController,
         CheckoutController,
         WebhooksController,
+        ReconciliationController,
       ],
       providers: [
         customOptionsProvider,
@@ -113,6 +123,7 @@ export class CrayModule {
         WebhooksVerifier,
         WebhooksService,
         IdempotencyService,
+        ReconciliationService,
       ],
       exports: [
         CRAY_MODULE_OPTIONS,
@@ -124,6 +135,7 @@ export class CrayModule {
         WebhooksVerifier,
         WebhooksService,
         IdempotencyService,
+        ReconciliationService,
         TypeOrmModule,
       ],
     };

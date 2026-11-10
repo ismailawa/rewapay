@@ -6,3 +6,5 @@ export * from './cray-checkout.entity';
 export * from './cray-webhook-event.entity';
 export * from './cray-idempotency.entity';
 export * from './cray-transaction.entity';
+export * from './cray-balance-snapshot.entity';
+export * from './cray-reconciliation-record.entity';

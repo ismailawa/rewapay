@@ -11,6 +11,8 @@ import { CrayCheckout } from './entities/cray-checkout.entity';
 import { CrayWebhookEvent } from './entities/cray-webhook-event.entity';
 import { CrayIdempotencyRecord } from './entities/cray-idempotency.entity';
 import { CrayTransactionRecord } from './entities/cray-transaction.entity';
+import { CrayBalanceSnapshot } from './entities/cray-balance-snapshot.entity';
+import { CrayReconciliationRecord } from './entities/cray-reconciliation-record.entity';
 
 describe('CrayModule', () => {
   const mockRepo = {
@@ -39,6 +41,10 @@ describe('CrayModule', () => {
       .overrideProvider(getRepositoryToken(CrayIdempotencyRecord))
       .useValue(mockRepo)
       .overrideProvider(getRepositoryToken(CrayTransactionRecord))
+      .useValue(mockRepo)
+      .overrideProvider(getRepositoryToken(CrayBalanceSnapshot))
+      .useValue(mockRepo)
+      .overrideProvider(getRepositoryToken(CrayReconciliationRecord))
       .useValue(mockRepo)
       .compile();
 
@@ -72,6 +78,10 @@ describe('CrayModule', () => {
       .overrideProvider(getRepositoryToken(CrayIdempotencyRecord))
       .useValue(mockRepo)
       .overrideProvider(getRepositoryToken(CrayTransactionRecord))
+      .useValue(mockRepo)
+      .overrideProvider(getRepositoryToken(CrayBalanceSnapshot))
+      .useValue(mockRepo)
+      .overrideProvider(getRepositoryToken(CrayReconciliationRecord))
       .useValue(mockRepo)
       .compile();
 
