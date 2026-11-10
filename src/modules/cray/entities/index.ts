@@ -4,3 +4,5 @@ export * from './cray-beneficiary.entity';
 export * from './cray-transfer.entity';
 export * from './cray-checkout.entity';
 export * from './cray-webhook-event.entity';
+export * from './cray-idempotency.entity';
+export * from './cray-transaction.entity';

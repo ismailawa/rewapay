@@ -95,13 +95,13 @@
     - [x] Persists events in `cray_webhook_events` with replay capability.
     - [x] 100% unit tests passing.
 
-- [ ] **Task 8: Idempotency & Database Persistence Layer**
+- [x] **Task 8: Idempotency & Database Persistence Layer**
   - **Scope:** Enforce database-level idempotency locks and request payload hash matching.
   - **Acceptance Criteria:**
-    - [ ] `cray_idempotency` entity with unique key and request payload hash.
-    - [ ] Reusing key with different payload throws `INVALID_INPUT` / `DUPLICATE_REFERENCE`.
-    - [ ] Concurrency-safe atomic transaction handling.
-    - [ ] 100% unit tests passing.
+    - [x] `cray_idempotency` entity with unique key and request payload hash.
+    - [x] Reusing key with different payload throws `INVALID_INPUT` / `DUPLICATE_REFERENCE`.
+    - [x] Concurrency-safe atomic transaction handling.
+    - [x] 100% unit tests passing.
 
 - [ ] **Task 9: Reconciliation Engine & Platform Balance**
   - **Scope:** Scheduled workers to reconcile pending transactions and record platform balances.

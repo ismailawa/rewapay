@@ -11,6 +11,8 @@ import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
 import { CrayTransfer } from './entities/cray-transfer.entity';
 import { CrayCheckout } from './entities/cray-checkout.entity';
 import { CrayWebhookEvent } from './entities/cray-webhook-event.entity';
+import { CrayIdempotencyRecord } from './entities/cray-idempotency.entity';
+import { CrayTransactionRecord } from './entities/cray-transaction.entity';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsService } from './accounts/accounts.service';
 import { BanksController } from './banks/banks.controller';
@@ -22,6 +24,7 @@ import { CheckoutService } from './checkout/checkout.service';
 import { WebhooksController } from './webhooks/webhooks.controller';
 import { WebhooksService } from './webhooks/webhooks.service';
 import { WebhooksVerifier } from './webhooks/webhooks.verifier';
+import { IdempotencyService } from './idempotency/idempotency.service';
 
 const ENTITIES = [
   CrayCustomer,
@@ -30,6 +33,8 @@ const ENTITIES = [
   CrayTransfer,
   CrayCheckout,
   CrayWebhookEvent,
+  CrayIdempotencyRecord,
+  CrayTransactionRecord,
 ];
 
 @Module({
@@ -58,6 +63,7 @@ const ENTITIES = [
     CheckoutService,
     WebhooksVerifier,
     WebhooksService,
+    IdempotencyService,
   ],
   exports: [
     CRAY_MODULE_OPTIONS,
@@ -68,6 +74,7 @@ const ENTITIES = [
     CheckoutService,
     WebhooksVerifier,
     WebhooksService,
+    IdempotencyService,
     TypeOrmModule,
   ],
 })
@@ -105,6 +112,7 @@ export class CrayModule {
         CheckoutService,
         WebhooksVerifier,
         WebhooksService,
+        IdempotencyService,
       ],
       exports: [
         CRAY_MODULE_OPTIONS,
@@ -115,6 +123,7 @@ export class CrayModule {
         CheckoutService,
         WebhooksVerifier,
         WebhooksService,
+        IdempotencyService,
         TypeOrmModule,
       ],
     };
