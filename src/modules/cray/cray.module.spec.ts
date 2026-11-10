@@ -7,6 +7,7 @@ import { CrayCustomer } from './entities/cray-customer.entity';
 import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
 import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
 import { CrayTransfer } from './entities/cray-transfer.entity';
+import { CrayCheckout } from './entities/cray-checkout.entity';
 
 describe('CrayModule', () => {
   const mockRepo = {

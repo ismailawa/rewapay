@@ -74,7 +74,7 @@
     - [x] TypeORM entity `CrayTransfer` persisted with `@Optional()` repo injection for unit-test isolation.
     - [x] 65/65 unit tests passing across 14 suites, zero build errors.
 
-- [ ] **Task 6: Collections & Hosted Checkout**
+- [x] **Task 6: Collections & Hosted Checkout**
   - **Scope:** Hosted checkout initialization, status query, and virtual account collection requery.
   - **Endpoints:** `POST /checkout/initialize`, `GET /checkout/query/{reference}`, `GET /api/query/{customer_reference}`, `POST /charge`.
   - **Acceptance Criteria:**

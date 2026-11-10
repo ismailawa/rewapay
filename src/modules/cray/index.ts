@@ -10,3 +10,4 @@ export * from './entities';
 export * from './accounts';
 export * from './banks';
 export * from './transfers';
+export * from './checkout';

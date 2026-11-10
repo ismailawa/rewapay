@@ -9,18 +9,22 @@ import { CrayCustomer } from './entities/cray-customer.entity';
 import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
 import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
 import { CrayTransfer } from './entities/cray-transfer.entity';
+import { CrayCheckout } from './entities/cray-checkout.entity';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsService } from './accounts/accounts.service';
 import { BanksController } from './banks/banks.controller';
 import { BanksService } from './banks/banks.service';
 import { TransfersController } from './transfers/transfers.controller';
 import { TransfersService } from './transfers/transfers.service';
+import { CheckoutController } from './checkout/checkout.controller';
+import { CheckoutService } from './checkout/checkout.service';
 
 const ENTITIES = [
   CrayCustomer,
   CrayVirtualAccount,
   CrayBeneficiary,
   CrayTransfer,
+  CrayCheckout,
 ];
 
 @Module({
@@ -33,6 +37,7 @@ const ENTITIES = [
     AccountsController,
     BanksController,
     TransfersController,
+    CheckoutController,
   ],
   providers: [
     {
@@ -44,6 +49,7 @@ const ENTITIES = [
     AccountsService,
     BanksService,
     TransfersService,
+    CheckoutService,
   ],
   exports: [
     CRAY_MODULE_OPTIONS,
@@ -51,6 +57,7 @@ const ENTITIES = [
     AccountsService,
     BanksService,
     TransfersService,
+    CheckoutService,
     TypeOrmModule,
   ],
 })
@@ -76,6 +83,7 @@ export class CrayModule {
         AccountsController,
         BanksController,
         TransfersController,
+        CheckoutController,
       ],
       providers: [
         customOptionsProvider,
@@ -83,6 +91,7 @@ export class CrayModule {
         AccountsService,
         BanksService,
         TransfersService,
+        CheckoutService,
       ],
       exports: [
         CRAY_MODULE_OPTIONS,
@@ -90,6 +99,7 @@ export class CrayModule {
         AccountsService,
         BanksService,
         TransfersService,
+        CheckoutService,
         TypeOrmModule,
       ],
     };
