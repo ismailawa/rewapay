@@ -10,6 +10,7 @@ import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
 import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
 import { CrayTransfer } from './entities/cray-transfer.entity';
 import { CrayCheckout } from './entities/cray-checkout.entity';
+import { CrayWebhookEvent } from './entities/cray-webhook-event.entity';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsService } from './accounts/accounts.service';
 import { BanksController } from './banks/banks.controller';
@@ -18,6 +19,9 @@ import { TransfersController } from './transfers/transfers.controller';
 import { TransfersService } from './transfers/transfers.service';
 import { CheckoutController } from './checkout/checkout.controller';
 import { CheckoutService } from './checkout/checkout.service';
+import { WebhooksController } from './webhooks/webhooks.controller';
+import { WebhooksService } from './webhooks/webhooks.service';
+import { WebhooksVerifier } from './webhooks/webhooks.verifier';
 
 const ENTITIES = [
   CrayCustomer,
@@ -25,6 +29,7 @@ const ENTITIES = [
   CrayBeneficiary,
   CrayTransfer,
   CrayCheckout,
+  CrayWebhookEvent,
 ];
 
 @Module({
@@ -38,6 +43,7 @@ const ENTITIES = [
     BanksController,
     TransfersController,
     CheckoutController,
+    WebhooksController,
   ],
   providers: [
     {
@@ -50,6 +56,8 @@ const ENTITIES = [
     BanksService,
     TransfersService,
     CheckoutService,
+    WebhooksVerifier,
+    WebhooksService,
   ],
   exports: [
     CRAY_MODULE_OPTIONS,
@@ -58,6 +66,8 @@ const ENTITIES = [
     BanksService,
     TransfersService,
     CheckoutService,
+    WebhooksVerifier,
+    WebhooksService,
     TypeOrmModule,
   ],
 })
@@ -84,6 +94,7 @@ export class CrayModule {
         BanksController,
         TransfersController,
         CheckoutController,
+        WebhooksController,
       ],
       providers: [
         customOptionsProvider,
@@ -92,6 +103,8 @@ export class CrayModule {
         BanksService,
         TransfersService,
         CheckoutService,
+        WebhooksVerifier,
+        WebhooksService,
       ],
       exports: [
         CRAY_MODULE_OPTIONS,
@@ -100,6 +113,8 @@ export class CrayModule {
         BanksService,
         TransfersService,
         CheckoutService,
+        WebhooksVerifier,
+        WebhooksService,
         TypeOrmModule,
       ],
     };

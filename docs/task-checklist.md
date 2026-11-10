@@ -84,16 +84,16 @@
     - [x] Direct card charge gated and protected.
     - [x] 100% unit tests passing.
 
-- [ ] **Task 7: Webhook Processing & Cryptographic Verification**
+- [x] **Task 7: Webhook Processing & Cryptographic Verification**
   - **Scope:** Receive webhooks, verify signatures, persist events, and emit internal domain events.
   - **Endpoints:** `POST /cray/webhooks`.
   - **Acceptance Criteria:**
-    - [ ] Raw request body captured for signature verification.
-    - [ ] Collection events verified using Base64 HMAC-SHA256 (`hash` over `JSON_string(data)`).
-    - [ ] Payin/payout events verified via IP allowlist + server-side transaction requery.
-    - [ ] Emits domain events (`funding.confirmed`, `transfer.completed`, etc.) via `EventEmitter2`.
-    - [ ] Persists events in `cray_webhook_events` with replay capability.
-    - [ ] 100% unit tests passing.
+    - [x] Raw request body captured for signature verification.
+    - [x] Collection events verified using Base64 HMAC-SHA256 (`hash` over `JSON_string(data)`).
+    - [x] Payin/payout events verified via IP allowlist + server-side transaction requery.
+    - [x] Emits domain events (`funding.confirmed`, `transfer.completed`, etc.) via `EventEmitter2`.
+    - [x] Persists events in `cray_webhook_events` with replay capability.
+    - [x] 100% unit tests passing.
 
 - [ ] **Task 8: Idempotency & Database Persistence Layer**
   - **Scope:** Enforce database-level idempotency locks and request payload hash matching.
