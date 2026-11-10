@@ -220,3 +220,4 @@ export interface ICrayService {
   initiateRefund(input: InitiateRefundInput): Promise<RefundResult>;
   getPlatformBalance(currency?: string): Promise<PlatformBalanceResult>;
 }
+

@@ -5,3 +5,4 @@ export * from './enums/cray.enums';
 export * from './interfaces/cray.interfaces';
 export * from './utils/money.util';
 export * from './utils/reference.util';
+export * from './clients';

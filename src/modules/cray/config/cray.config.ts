@@ -53,3 +53,4 @@ export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
       : CRAY_DEFAULT_COLLECTION_PAYOUT_RPM,
   };
 });
+

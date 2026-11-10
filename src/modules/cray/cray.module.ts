@@ -3,6 +3,7 @@ import { ConfigModule, ConfigType } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { crayConfig, CrayModuleOptions } from './config/cray.config';
 import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
+import { CrayApiClient } from './clients/cray-api.client';
 
 @Module({
   imports: [
@@ -15,8 +16,9 @@ import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
       useFactory: (config: ConfigType<typeof crayConfig>) => config,
       inject: [crayConfig.KEY],
     },
+    CrayApiClient,
   ],
-  exports: [CRAY_MODULE_OPTIONS],
+  exports: [CRAY_MODULE_OPTIONS, CrayApiClient],
 })
 export class CrayModule {
   static forRoot(options?: Partial<CrayModuleOptions>): DynamicModule {
@@ -35,8 +37,8 @@ export class CrayModule {
         ConfigModule.forFeature(crayConfig),
         EventEmitterModule.forRoot(),
       ],
-      providers: [customOptionsProvider],
-      exports: [CRAY_MODULE_OPTIONS],
+      providers: [customOptionsProvider, CrayApiClient],
+      exports: [CRAY_MODULE_OPTIONS, CrayApiClient],
     };
   }
 }

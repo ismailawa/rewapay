@@ -11,3 +11,4 @@ export const CRAY_DEFAULT_GENERAL_RPM = 60;
 export const CRAY_DEFAULT_COLLECTION_PAYOUT_RPM = 30;
 
 export const DEFAULT_CURRENCY = 'NGN';
+

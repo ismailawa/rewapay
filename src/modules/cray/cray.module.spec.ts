@@ -32,3 +32,4 @@ describe('CrayModule', () => {
     expect(options.apiToken).toBe('test-token');
   });
 });
+

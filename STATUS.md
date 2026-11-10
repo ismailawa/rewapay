@@ -71,7 +71,7 @@ The module is broken down into discrete, self-contained tasks. Each task is exec
 | Task # | Task Description | Status | Test Pace & Deliverables |
 | :--- | :--- | :--- | :--- |
 | **Task 1** | **Setup & Scaffolding via NestJS CLI** | **COMPLETED** | - Project scaffolded with `@nestjs/cli`<br>- Core configs, enums, interfaces, utilities (`MoneyUtil`, `ReferenceUtil`)<br>- Unit tests passing (`money.util.spec.ts`, `reference.util.spec.ts`, `cray.module.spec.ts`) |
-| **Task 2** | **Cray Client, ES256 Request Signing & Error Mapping** | Pending | - Typed HTTP client with rate-limiting (60 RPM general, 30 RPM financial)<br>- ES256 request signing using P-256/SHA-256 with DER Base64 formatting<br>- Canonical message test vectors & error normalization |
+| **Task 2** | **Cray Client, ES256 Request Signing & Error Mapping** | **COMPLETED** | - Typed HTTP client (`CrayApiClient`) with rate-limiting (60 RPM general, 30 RPM financial)<br>- ES256 request signing using P-256/SHA-256 with DER Base64 formatting (`CraySigner`)<br>- Canonical message test vectors & error normalization (`CrayErrorMapper`)<br>- 34/34 tests passing across 8 suites |
 | **Task 3** | **Customer & Virtual Accounts Management** | Pending | - Permanent NGN virtual accounts (`POST /api/virtual-accounts/create`)<br>- OTP submission (`POST /api/virtual-accounts/generate-wallet`)<br>- Account retrieval and TypeORM entities |
 | **Task 4** | **Bank Directory & Beneficiary Validation** | Pending | - Cached bank list (`GET /payout/banks?countryCode=NG`)<br>- Account name validation (`POST /payout/accounts/validate`)<br>- Beneficiary persistence and verification models |
 | **Task 5** | **Payouts / Transfers Initiation & Requery** | Pending | - Payout dispatch (`POST /payout/disburse` with exact `receipient_info` field)<br>- Status requery (`GET /payout/requery/{transaction_id}`)<br>- Requery-before-retry failure recovery |
@@ -95,3 +95,4 @@ To ensure high financial precision and reliability, testing progresses at a defi
    - Edge cases tested: network timeouts, HTTP 409 conflict on reused references, invalid HMACs, malformed numbers.
 3. **End-to-End In-Process Module Tests:**
    - The consuming RewaPay wallet module interactions (`ICrayService` calls and `EventEmitter2` listeners) are tested end-to-end using NestJS testing modules with an in-memory/test database.
+

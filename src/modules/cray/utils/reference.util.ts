@@ -19,3 +19,4 @@ export class ReferenceUtil {
     return combined.slice(0, this.MAX_REFERENCE_LENGTH);
   }
 }
+
