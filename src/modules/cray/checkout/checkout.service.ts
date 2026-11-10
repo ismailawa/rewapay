@@ -246,6 +246,45 @@ export class CheckoutService {
   }
 
   /**
+   * Queries any collection / virtual account funding or payment transaction by reference.
+   * Endpoint: GET /query/{reference}
+   * Docs: docs/cray-api-v2-docs.md § Query transaction
+   */
+  async queryTransaction(reference: string): Promise<Record<string, unknown>> {
+    if (!reference) {
+      throw new CrayException({
+        code: CrayErrorCode.INVALID_INPUT,
+        message: 'Reference is required to query transaction.',
+        retryable: false,
+      });
+    }
+
+    const response = await this.apiClient.get<Record<string, unknown>>(`/query/${reference}`);
+    return (response?.data as Record<string, unknown>) || (response as Record<string, unknown>);
+  }
+
+  /**
+   * Submits a direct card charge for an initialized card transaction.
+   * Direct card charging is gated and requires a valid transaction_id.
+   * Endpoint: POST /charge
+   * Docs: docs/cray-api-v2-docs.md § Collections - Card charge
+   */
+  async chargeCard(transactionId: string): Promise<Record<string, unknown>> {
+    if (!transactionId || typeof transactionId !== 'string' || !transactionId.trim()) {
+      throw new CrayException({
+        code: CrayErrorCode.INVALID_INPUT,
+        message: 'transaction_id is required for direct card charge.',
+        retryable: false,
+      });
+    }
+
+    const response = await this.apiClient.post<Record<string, unknown>>('/charge', {
+      transaction_id: transactionId.trim(),
+    });
+    return (response?.data as Record<string, unknown>) || (response as Record<string, unknown>);
+  }
+
+  /**
    * Finds a checkout record by merchant reference.
    * Public so reconciliation service can call it.
    */

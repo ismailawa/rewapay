@@ -243,5 +243,68 @@ describe('CheckoutService', () => {
       expect(thrownError.code).toBe(CrayErrorCode.NOT_FOUND);
     });
   });
+
+  // =====================================================================
+  // queryTransaction
+  // =====================================================================
+
+  describe('queryTransaction', () => {
+    it('should query transaction via GET /query/{reference}', async () => {
+      apiClient.get.mockResolvedValueOnce({
+        status: true,
+        data: {
+          status: 'Successful',
+          reference: 'txn_ref_123',
+          amount: 5000,
+        },
+      });
+
+      const result = await service.queryTransaction('txn_ref_123');
+      expect(apiClient.get).toHaveBeenCalledWith('/query/txn_ref_123');
+      expect(result).toEqual(
+        expect.objectContaining({
+          status: 'Successful',
+          reference: 'txn_ref_123',
+          amount: 5000,
+        }),
+      );
+    });
+
+    it('should throw INVALID_INPUT if reference is empty', async () => {
+      await expect(service.queryTransaction('')).rejects.toThrow(CrayException);
+    });
+  });
+
+  // =====================================================================
+  // chargeCard
+  // =====================================================================
+
+  describe('chargeCard', () => {
+    it('should charge card via POST /charge with transaction_id', async () => {
+      apiClient.post.mockResolvedValueOnce({
+        status: true,
+        data: {
+          status: 'redirect_auth',
+          reference: 'auth_ref_999',
+        },
+      });
+
+      const result = await service.chargeCard('TXN_GATE_123');
+      expect(apiClient.post).toHaveBeenCalledWith('/charge', {
+        transaction_id: 'TXN_GATE_123',
+      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          status: 'redirect_auth',
+          reference: 'auth_ref_999',
+        }),
+      );
+    });
+
+    it('should throw INVALID_INPUT if transaction_id is missing or whitespace', async () => {
+      await expect(service.chargeCard('')).rejects.toThrow(CrayException);
+      await expect(service.chargeCard('   ')).rejects.toThrow(CrayException);
+    });
+  });
 });
 

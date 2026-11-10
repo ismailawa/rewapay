@@ -27,6 +27,25 @@ export class CheckoutController {
   }
 
   /**
+   * Queries any transaction / virtual account collection via GET /query/{reference}.
+   * GET /cray/checkout/query/:reference
+   */
+  @Get('query/:reference')
+  async queryTransaction(@Param('reference') reference: string): Promise<Record<string, unknown>> {
+    return this.checkoutService.queryTransaction(reference);
+  }
+
+  /**
+   * Submits a direct card charge for an initialized card transaction.
+   * POST /cray/checkout/charge
+   */
+  @Post('charge')
+  @HttpCode(HttpStatus.OK)
+  async chargeCard(@Body('transaction_id') transactionId: string): Promise<Record<string, unknown>> {
+    return this.checkoutService.chargeCard(transactionId);
+  }
+
+  /**
    * Queries the status of a checkout session.
    *
    * Calls GET /checkout/query/{reference} on Cray if the session is still pending.

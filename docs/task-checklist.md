@@ -78,11 +78,11 @@
   - **Scope:** Hosted checkout initialization, status query, and virtual account collection requery.
   - **Endpoints:** `POST /checkout/initialize`, `GET /checkout/query/{reference}`, `GET /api/query/{customer_reference}`, `POST /charge`.
   - **Acceptance Criteria:**
-    - [ ] Hosted checkout initializes session and returns payment link `data.link`.
-    - [ ] Checkout verification queries authoritative status via `GET /checkout/query/{reference}`.
-    - [ ] Virtual account funding verified via `GET /api/query/{customer_reference}`.
-    - [ ] Direct card charge gated and protected.
-    - [ ] 100% unit tests passing.
+    - [x] Hosted checkout initializes session and returns payment link `data.link`.
+    - [x] Checkout verification queries authoritative status via `GET /checkout/query/{reference}`.
+    - [x] Virtual account funding verified via `GET /api/query/{customer_reference}`.
+    - [x] Direct card charge gated and protected.
+    - [x] 100% unit tests passing.
 
 - [ ] **Task 7: Webhook Processing & Cryptographic Verification**
   - **Scope:** Receive webhooks, verify signatures, persist events, and emit internal domain events.
