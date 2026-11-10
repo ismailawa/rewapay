@@ -1,4 +1,5 @@
 export * from './cray.module';
+export * from './cray.service';
 export * from './config/cray.config';
 export * from './config/cray.constants';
 export * from './enums/cray.enums';

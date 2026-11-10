@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { CrayModule } from './cray.module';
-import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
+import { CRAY_MODULE_OPTIONS, CRAY_SERVICE } from './config/cray.constants';
 import { CrayModuleOptions } from './config/cray.config';
+import { CrayService } from './cray.service';
 import { CrayCustomer } from './entities/cray-customer.entity';
 import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
 import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
@@ -52,6 +53,8 @@ describe('CrayModule', () => {
     const options = module.get<CrayModuleOptions>(CRAY_MODULE_OPTIONS);
     expect(options).toBeDefined();
     expect(options.environment).toBe('staging');
+    const service = module.get<CrayService>(CRAY_SERVICE);
+    expect(service).toBeDefined();
   });
 
   it('should compile with forRoot options', async () => {
@@ -90,5 +93,7 @@ describe('CrayModule', () => {
     expect(options).toBeDefined();
     expect(options.environment).toBe('production');
     expect(options.apiToken).toBe('test-token');
+    const service = module.get<CrayService>(CRAY_SERVICE);
+    expect(service).toBeDefined();
   });
 });

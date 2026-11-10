@@ -3,8 +3,9 @@ import { ConfigModule, ConfigType } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { crayConfig, CrayModuleOptions } from './config/cray.config';
-import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
+import { CRAY_MODULE_OPTIONS, CRAY_SERVICE } from './config/cray.constants';
 import { CrayApiClient } from './clients/cray-api.client';
+import { CrayService } from './cray.service';
 import { CrayCustomer } from './entities/cray-customer.entity';
 import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
 import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
@@ -72,9 +73,16 @@ const ENTITIES = [
     WebhooksService,
     IdempotencyService,
     ReconciliationService,
+    CrayService,
+    {
+      provide: CRAY_SERVICE,
+      useExisting: CrayService,
+    },
   ],
   exports: [
     CRAY_MODULE_OPTIONS,
+    CRAY_SERVICE,
+    CrayService,
     CrayApiClient,
     AccountsService,
     BanksService,
@@ -124,9 +132,16 @@ export class CrayModule {
         WebhooksService,
         IdempotencyService,
         ReconciliationService,
+        CrayService,
+        {
+          provide: CRAY_SERVICE,
+          useExisting: CrayService,
+        },
       ],
       exports: [
         CRAY_MODULE_OPTIONS,
+        CRAY_SERVICE,
+        CrayService,
         CrayApiClient,
         AccountsService,
         BanksService,

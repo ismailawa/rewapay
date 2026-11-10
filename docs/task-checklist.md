@@ -112,10 +112,10 @@
     - [x] Flags transactions stuck > 30 minutes for operations review.
     - [x] 100% unit tests passing.
 
-- [ ] **Task 10: Unified Wallet Service Facade (`ICrayService`) & Acceptance Suite**
+- [x] **Task 10: Unified Wallet Service Facade (`ICrayService`) & Acceptance Suite**
   - **Scope:** In-process facade service implementing `ICrayService` and end-to-end sandbox verification.
   - **Acceptance Criteria:**
-    - [ ] `CrayService` exports clean in-process API matching Interface Contract v0.1.
-    - [ ] End-to-end integration test suite simulating full payment lifecycles.
-    - [ ] Documentation and module export verification for RewaPay backend.
+    - [x] `CrayService` exports clean in-process API matching Interface Contract v0.1.
+    - [x] End-to-end integration test suite simulating full payment lifecycles.
+    - [x] Documentation and module export verification for RewaPay backend.
 
