@@ -7,10 +7,13 @@ import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
 import { CrayApiClient } from './clients/cray-api.client';
 import { CrayCustomer } from './entities/cray-customer.entity';
 import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
+import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsService } from './accounts/accounts.service';
+import { BanksController } from './banks/banks.controller';
+import { BanksService } from './banks/banks.service';
 
-const ENTITIES = [CrayCustomer, CrayVirtualAccount];
+const ENTITIES = [CrayCustomer, CrayVirtualAccount, CrayBeneficiary];
 
 @Module({
   imports: [
@@ -18,7 +21,7 @@ const ENTITIES = [CrayCustomer, CrayVirtualAccount];
     EventEmitterModule.forRoot(),
     TypeOrmModule.forFeature(ENTITIES),
   ],
-  controllers: [AccountsController],
+  controllers: [AccountsController, BanksController],
   providers: [
     {
       provide: CRAY_MODULE_OPTIONS,
@@ -27,8 +30,15 @@ const ENTITIES = [CrayCustomer, CrayVirtualAccount];
     },
     CrayApiClient,
     AccountsService,
+    BanksService,
   ],
-  exports: [CRAY_MODULE_OPTIONS, CrayApiClient, AccountsService, TypeOrmModule],
+  exports: [
+    CRAY_MODULE_OPTIONS,
+    CrayApiClient,
+    AccountsService,
+    BanksService,
+    TypeOrmModule,
+  ],
 })
 export class CrayModule {
   static forRoot(options?: Partial<CrayModuleOptions>): DynamicModule {
@@ -48,9 +58,15 @@ export class CrayModule {
         EventEmitterModule.forRoot(),
         TypeOrmModule.forFeature(ENTITIES),
       ],
-      controllers: [AccountsController],
-      providers: [customOptionsProvider, CrayApiClient, AccountsService],
-      exports: [CRAY_MODULE_OPTIONS, CrayApiClient, AccountsService, TypeOrmModule],
+      controllers: [AccountsController, BanksController],
+      providers: [customOptionsProvider, CrayApiClient, AccountsService, BanksService],
+      exports: [
+        CRAY_MODULE_OPTIONS,
+        CrayApiClient,
+        AccountsService,
+        BanksService,
+        TypeOrmModule,
+      ],
     };
   }
 }

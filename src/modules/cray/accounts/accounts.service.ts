@@ -20,6 +20,8 @@ interface CrayVAResponseItem {
   bank_code?: string;
   bankName?: string;
   bank_name?: string;
+  bank?: string;
+  sort_code?: string;
   accountNumber?: string;
   account_number?: string;
   accountName?: string;
@@ -102,7 +104,7 @@ export class AccountsService {
     );
 
     const response = await this.apiClient.post<CrayCreateVAResponse>(
-      '/api/virtual-accounts/create',
+      '/virtual-accounts/create',
       payload,
     );
 
@@ -140,8 +142,8 @@ export class AccountsService {
     const accountItem = this.extractAccountItem(response);
     const accountNumber = accountItem?.accountNumber || accountItem?.account_number || '';
     const accountName = accountItem?.accountName || accountItem?.account_name || input.fullName;
-    const bankName = accountItem?.bankName || accountItem?.bank_name || 'Cray Partner Bank';
-    const bankCode = accountItem?.bankCode || accountItem?.bank_code;
+    const bankName = accountItem?.bankName || accountItem?.bank_name || accountItem?.bank || 'Bloc MFB';
+    const bankCode = accountItem?.bankCode || accountItem?.bank_code || accountItem?.sort_code;
 
     const saved = await this.saveVirtualAccount({
       customerId: input.customerId,

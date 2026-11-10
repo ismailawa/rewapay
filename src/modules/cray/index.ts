@@ -8,3 +8,4 @@ export * from './utils/reference.util';
 export * from './clients';
 export * from './entities';
 export * from './accounts';
+export * from './banks';

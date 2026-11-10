@@ -14,6 +14,7 @@ export interface CrayModuleOptions {
   apiToken: string;
   requestSigningEnabled: boolean;
   signingPrivateKey?: string;
+  signingKeyId?: string; // kid registered in Cray Dashboard
   webhookSecret?: string;
   webhookAllowedIps: string[];
   httpTimeoutMs: number;
@@ -35,6 +36,7 @@ export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
     apiToken: process.env.CRAY_API_TOKEN || '',
     requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED === 'true',
     signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY,
+    signingKeyId: process.env.CRAY_SIGNING_KEY_ID,
     webhookSecret: process.env.CRAY_WEBHOOK_SECRET,
     webhookAllowedIps: process.env.CRAY_WEBHOOK_ALLOWED_IPS
       ? process.env.CRAY_WEBHOOK_ALLOWED_IPS.split(',').map((ip) => ip.trim())
@@ -53,4 +55,3 @@ export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
       : CRAY_DEFAULT_COLLECTION_PAYOUT_RPM,
   };
 });
-

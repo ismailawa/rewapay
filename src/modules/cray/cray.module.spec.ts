@@ -5,6 +5,7 @@ import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
 import { CrayModuleOptions } from './config/cray.config';
 import { CrayCustomer } from './entities/cray-customer.entity';
 import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
+import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
 
 describe('CrayModule', () => {
   const mockRepo = {
@@ -21,6 +22,8 @@ describe('CrayModule', () => {
       .overrideProvider(getRepositoryToken(CrayCustomer))
       .useValue(mockRepo)
       .overrideProvider(getRepositoryToken(CrayVirtualAccount))
+      .useValue(mockRepo)
+      .overrideProvider(getRepositoryToken(CrayBeneficiary))
       .useValue(mockRepo)
       .compile();
 
@@ -42,6 +45,8 @@ describe('CrayModule', () => {
       .overrideProvider(getRepositoryToken(CrayCustomer))
       .useValue(mockRepo)
       .overrideProvider(getRepositoryToken(CrayVirtualAccount))
+      .useValue(mockRepo)
+      .overrideProvider(getRepositoryToken(CrayBeneficiary))
       .useValue(mockRepo)
       .compile();
 

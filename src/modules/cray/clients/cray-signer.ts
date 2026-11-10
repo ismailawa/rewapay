@@ -11,7 +11,7 @@ export interface CanonicalMessageParams {
 export class CraySigner {
   /**
    * Computes the lowercase hexadecimal SHA-256 hash of the exact request body bytes.
-   * If body is empty or undefined, hashes an empty buffer.
+   * If body is empty or undefined, returns hash of empty string.
    */
   static hashBody(body?: Buffer | string): string {
     const hash = crypto.createHash('sha256');
@@ -24,7 +24,49 @@ export class CraySigner {
   }
 
   /**
-   * Constructs the 5-line canonical message defined in PRD Section 19A.1:
+   * Canonicalises path and query string according to Cray v2 specifications:
+   * 1. Path begins with /
+   * 2. Trailing slash is removed (except root /)
+   * 3. Query string parameters are URL-decoded, sorted alphabetically by key, then re-encoded
+   */
+  static canonicalizePath(pathWithQuery: string): string {
+    if (!pathWithQuery) return '/';
+
+    const [pathPart, queryPart] = pathWithQuery.split('?');
+    let normalizedPath = pathPart.trim();
+    if (!normalizedPath.startsWith('/')) {
+      normalizedPath = '/' + normalizedPath;
+    }
+    if (normalizedPath.length > 1 && normalizedPath.endsWith('/')) {
+      normalizedPath = normalizedPath.slice(0, -1);
+    }
+
+    if (!queryPart || queryPart.trim() === '') {
+      return normalizedPath;
+    }
+
+    // Split on '&' and sort canonical pairs
+    const pairs = queryPart
+      .split('&')
+      .filter((p) => p.length > 0)
+      .map((pair) => {
+        const [k, v = ''] = pair.split('=');
+        const decodedKey = decodeURIComponent(k.replace(/\+/g, '%20'));
+        const decodedVal = decodeURIComponent(v.replace(/\+/g, '%20'));
+        return {
+          key: encodeURIComponent(decodedKey),
+          val: encodeURIComponent(decodedVal),
+        };
+      });
+
+    pairs.sort((a, b) => a.key.localeCompare(b.key));
+    const canonicalQuery = pairs.map((p) => `${p.key}=${p.val}`).join('&');
+
+    return `${normalizedPath}?${canonicalQuery}`;
+  }
+
+  /**
+   * Constructs the 5-line canonical message defined in docs.crayfi.com/v2:
    * METHOD\n
    * PATH_WITH_QUERY\n
    * TIMESTAMP_MS\n
@@ -35,7 +77,7 @@ export class CraySigner {
    */
   static buildCanonicalMessage(params: CanonicalMessageParams): string {
     const method = params.method.toUpperCase().trim();
-    const pathWithQuery = params.pathWithQuery.trim();
+    const pathWithQuery = this.canonicalizePath(params.pathWithQuery);
     const timestampMs = params.timestampMs.toString().trim();
     const nonce = params.nonce.trim();
     const bodySha256Hex = this.hashBody(params.bodyBytes);
@@ -44,16 +86,31 @@ export class CraySigner {
   }
 
   /**
+   * Formats the official X-Signature header:
+   * t=<unix-ms>,n=<uuid>,kid=<key-id>,v1=<base64-signature>
+   */
+  static formatHeader(params: {
+    timestampMs: number | string;
+    nonce: string;
+    signature: string;
+    keyId?: string;
+  }): string {
+    const parts = [
+      `t=${params.timestampMs}`,
+      `n=${params.nonce}`,
+      ...(params.keyId ? [`kid=${params.keyId}`] : []),
+      `v1=${params.signature}`,
+    ];
+    return parts.join(',');
+  }
+
+  /**
    * Signs a canonical message using ES256 (ECDSA with SHA-256 on P-256 curve).
    * Returns a DER-encoded, Base64-encoded signature.
-   *
-   * @param canonicalMessage The 5-line canonical string
-   * @param privateKeyPem PEM formatted EC private key (SPKI/PKCS#8)
    */
   static sign(canonicalMessage: string, privateKeyPem: string): string {
     const sign = crypto.createSign('sha256');
     sign.update(Buffer.from(canonicalMessage, 'utf8'));
-    // In Node.js crypto, default dsaEncoding for EC is 'der'
     const signatureDer = sign.sign({
       key: privateKeyPem,
       dsaEncoding: 'der',
@@ -63,10 +120,6 @@ export class CraySigner {
 
   /**
    * Verifies an ES256 signature against a canonical message.
-   *
-   * @param canonicalMessage The 5-line canonical string
-   * @param signatureBase64 The Base64-encoded DER signature
-   * @param publicKeyPem PEM formatted EC public key (SPKI)
    */
   static verify(
     canonicalMessage: string,
@@ -89,4 +142,3 @@ export class CraySigner {
     }
   }
 }
-

@@ -74,24 +74,33 @@ describe('CrayApiClient', () => {
     });
 
     const body = { customer_email: 'test@example.com' };
-    await client.post('/api/virtual-accounts/create', body);
+    await client.post('/virtual-accounts/create', body);
 
     expect(capturedHeaders['X-Signature']).toBeDefined();
-    expect(capturedHeaders['X-Timestamp']).toBeDefined();
-    expect(capturedHeaders['X-Nonce']).toBeDefined();
+    const sigHeader = capturedHeaders['X-Signature'];
+    expect(sigHeader).toContain('t=');
+    expect(sigHeader).toContain('n=');
+    expect(sigHeader).toContain('v1=');
+
+    const params = Object.fromEntries(
+      sigHeader.split(',').map((p) => {
+        const [k, ...v] = p.split('=');
+        return [k, v.join('=')];
+      }),
+    );
 
     // Verify signature against canonical message
     const canonicalMessage = CraySigner.buildCanonicalMessage({
       method: 'POST',
-      pathWithQuery: '/api/virtual-accounts/create',
-      timestampMs: capturedHeaders['X-Timestamp'],
-      nonce: capturedHeaders['X-Nonce'],
+      pathWithQuery: '/virtual-accounts/create',
+      timestampMs: params['t'],
+      nonce: params['n'],
       bodyBytes: JSON.stringify(body),
     });
 
     const isValid = CraySigner.verify(
       canonicalMessage,
-      capturedHeaders['X-Signature'],
+      params['v1'],
       publicKeyPem,
     );
     expect(isValid).toBe(true);

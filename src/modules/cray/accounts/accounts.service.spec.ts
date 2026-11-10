@@ -77,7 +77,7 @@ describe('AccountsService', () => {
       expect(result.bankCode).toBe('035');
       expect(result.status).toBe(CrayStatus.SUCCESSFUL);
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/api/virtual-accounts/create',
+        '/virtual-accounts/create',
         expect.objectContaining({
           currency: 'NGN',
           customer_email: 'user@example.com',

@@ -114,9 +114,12 @@ export class CrayApiClient {
         this.options.signingPrivateKey,
       );
 
-      headers['X-Signature'] = signature;
-      headers['X-Timestamp'] = timestampMs.toString();
-      headers['X-Nonce'] = nonce;
+      headers['X-Signature'] = CraySigner.formatHeader({
+        timestampMs,
+        nonce,
+        signature,
+        keyId: this.options.signingKeyId,
+      });
 
       // Ensure JSON payload is transmitted identically as hashed
       if (config.data && typeof config.data !== 'string') {
