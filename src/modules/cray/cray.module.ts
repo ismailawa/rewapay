@@ -2,7 +2,7 @@ import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { crayConfig, CrayModuleOptions } from './config/cray.config';
+import { crayConfig, CrayModuleOptions, CrayModuleAsyncOptions } from './config/cray.config';
 import { CRAY_MODULE_OPTIONS, CRAY_SERVICE } from './config/cray.constants';
 import { CrayApiClient } from './clients/cray-api.client';
 import { CrayService } from './cray.service';
@@ -123,6 +123,73 @@ export class CrayModule {
       ],
       providers: [
         customOptionsProvider,
+        CrayApiClient,
+        AccountsService,
+        BanksService,
+        TransfersService,
+        CheckoutService,
+        WebhooksVerifier,
+        WebhooksService,
+        IdempotencyService,
+        ReconciliationService,
+        CrayService,
+        {
+          provide: CRAY_SERVICE,
+          useExisting: CrayService,
+        },
+      ],
+      exports: [
+        CRAY_MODULE_OPTIONS,
+        CRAY_SERVICE,
+        CrayService,
+        CrayApiClient,
+        AccountsService,
+        BanksService,
+        TransfersService,
+        CheckoutService,
+        WebhooksVerifier,
+        WebhooksService,
+        IdempotencyService,
+        ReconciliationService,
+        TypeOrmModule,
+      ],
+    };
+  }
+
+  static forRootAsync(options: CrayModuleAsyncOptions): DynamicModule {
+    const asyncOptionsProvider: Provider = {
+      provide: CRAY_MODULE_OPTIONS,
+      useFactory: async (defaultConfig: ConfigType<typeof crayConfig>, ...injected: any[]) => {
+        let customOptions: Partial<CrayModuleOptions> = {};
+        if (options.useFactory) {
+          customOptions = await options.useFactory(...injected);
+        }
+        return {
+          ...defaultConfig,
+          ...customOptions,
+        };
+      },
+      inject: [crayConfig.KEY, ...(options.inject || [])],
+    };
+
+    return {
+      module: CrayModule,
+      imports: [
+        ...(options.imports || []),
+        ConfigModule.forFeature(crayConfig),
+        EventEmitterModule.forRoot(),
+        TypeOrmModule.forFeature(ENTITIES),
+      ],
+      controllers: [
+        AccountsController,
+        BanksController,
+        TransfersController,
+        CheckoutController,
+        WebhooksController,
+        ReconciliationController,
+      ],
+      providers: [
+        asyncOptionsProvider,
         CrayApiClient,
         AccountsService,
         BanksService,

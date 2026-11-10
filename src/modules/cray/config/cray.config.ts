@@ -23,6 +23,18 @@ export interface CrayModuleOptions {
   collectionPayoutRpm: number;
 }
 
+export interface CrayOptionsFactory {
+  createCrayOptions(): Promise<Partial<CrayModuleOptions>> | Partial<CrayModuleOptions>;
+}
+
+export interface CrayModuleAsyncOptions {
+  imports?: any[];
+  useFactory?: (...args: any[]) => Promise<Partial<CrayModuleOptions>> | Partial<CrayModuleOptions>;
+  inject?: any[];
+  useClass?: any;
+  useExisting?: any;
+}
+
 export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
   const environment = (process.env.CRAY_ENVIRONMENT as 'staging' | 'production' | 'test') || 'staging';
   const defaultBaseUrl =
