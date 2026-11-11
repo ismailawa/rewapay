@@ -11,7 +11,25 @@ import {
 export interface CrayModuleOptions {
   environment: 'staging' | 'production' | 'test';
   baseUrl: string;
+  /**
+   * Scoped API key (collection / disbursement / conversion).
+   * Sent as `Authorization: Bearer <apiToken>` on every main API request.
+   * Maps to CRAYFI_MERCHANT_KEY_TEST (staging) or the live merchant key.
+   */
   apiToken: string;
+  /**
+   * Public key (`lrp_...`) sent in the request body for Payment Initialization
+   * endpoints (/payments/initialize, /payment/create, etc.).
+   * Maps to CRAYFI_PUBLIC_KEY_TEST (staging) or the live public key.
+   */
+  publicKey?: string;
+  /**
+   * Secret key (`lrs_...`) used in the URL path for the payment-verify endpoint:
+   * GET /payment/merchant/verify/{referenceCode}/{secretKey}
+   * Maps to CRAYFI_SECRET_KEY_TEST (staging) or the live secret key.
+   * Never send in a browser or log full request URLs when this is in the path.
+   */
+  secretKey?: string;
   requestSigningEnabled: boolean;
   signingPrivateKey?: string;
   signingKeyId?: string; // kid registered in Cray Dashboard
@@ -45,7 +63,11 @@ export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
   return {
     environment,
     baseUrl: process.env.CRAY_BASE_URL || defaultBaseUrl,
-    apiToken: process.env.CRAY_API_TOKEN || '',
+    // Scoped merchant API key — Bearer token for main API endpoints
+    apiToken: process.env.CRAYFI_MERCHANT_KEY_TEST || process.env.CRAY_API_TOKEN || '',
+    // Payment Initialization inline credentials
+    publicKey: process.env.CRAYFI_PUBLIC_KEY_TEST,
+    secretKey: process.env.CRAYFI_SECRET_KEY_TEST,
     requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED === 'true',
     signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY,
     signingKeyId: process.env.CRAY_SIGNING_KEY_ID,

@@ -11,8 +11,13 @@ import { CrayModule } from './modules/cray/cray.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        environment: config.get<'staging' | 'production'>('CRAY_ENVIRONMENT', 'staging'),
-        apiToken: config.get<string>('CRAY_API_TOKEN'),
+        environment: config.get<'staging' | 'production' | 'test'>('CRAY_ENVIRONMENT', 'staging'),
+        // Scoped merchant API key (Bearer token) — provided as CRAYFI_MERCHANT_KEY_TEST in staging
+        apiToken: config.get<string>('CRAYFI_MERCHANT_KEY_TEST') ?? config.get<string>('CRAY_API_TOKEN'),
+        // Payment Initialization inline credentials (no Bearer / no X-Signature)
+        publicKey: config.get<string>('CRAYFI_PUBLIC_KEY_TEST'),
+        secretKey: config.get<string>('CRAYFI_SECRET_KEY_TEST'),
+        // Request signing — only needed if enabled in Cray Dashboard
         requestSigningEnabled:
           config.get<string>('CRAY_REQUEST_SIGNING_ENABLED') === 'true',
         signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID'),

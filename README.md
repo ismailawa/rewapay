@@ -1,98 +1,157 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# @rewapay/cray Integration Module
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS dynamic module wrapping the **Cray Finance v2 API** for seamless integration into RewaPay backend services.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## 📦 Installation
 
 ```bash
-$ npm install
+npm install @rewapay/cray @nestjs/config @nestjs/event-emitter @nestjs/typeorm
 ```
 
-## Compile and run the project
+The module depends on the following Nest packages, which are added as peer dependencies:
+- `@nestjs/config`
+- `@nestjs/event-emitter`
+- `@nestjs/typeorm`
+- `pg` (PostgreSQL driver)
+
+## ⚙️ Configuration
+
+Cray provides **three separate key types** (all from **Dashboard → Settings → Developer**). Copy `.env.example` and fill in your keys:
+
+```dotenv
+CRAY_ENVIRONMENT=staging               # staging | production | test
+CRAY_BASE_URL=https://sandbox.crayfi.io
+
+# 1. Scoped merchant API key → Authorization: Bearer <key>
+#    Covers: virtual accounts, payouts, disburse, balance, hosted checkout
+CRAYFI_MERCHANT_KEY_TEST=your_merchant_api_key
+
+# 2. Public key (lrp_...) → sent in request BODY for payment-init endpoints
+#    Covers: /payments/initialize, /payment/create, /payment/merchant/create
+CRAYFI_PUBLIC_KEY_TEST=lrp_your_public_key
+
+# 3. Secret key (lrs_...) → sent in URL PATH for payment-verify endpoint only
+#    GET /payment/merchant/verify/{referenceCode}/{secretKey}
+#    ⚠️  Never expose in browser code, logs, or client-side requests
+CRAYFI_SECRET_KEY_TEST=lrs_your_secret_key
+
+# Webhook key (separate scope, cannot call the API)
+CRAY_WEBHOOK_SECRET=your_webhook_scoped_api_key
+CRAY_WEBHOOK_ALLOWED_IPS=127.0.0.1,::1
+
+# Request signing — only set to true if enabled in your Cray Dashboard
+CRAY_REQUEST_SIGNING_ENABLED=false
+```
+
+> **How the three keys map to Cray's auth docs:**
+>
+> | Key | Auth mechanism | Endpoints |
+> |---|---|---|
+> | `CRAYFI_MERCHANT_KEY_TEST` | `Authorization: Bearer <key>` header | All main API endpoints |
+> | `CRAYFI_PUBLIC_KEY_TEST` | `public_key` field in request **body** | Payment Initialization endpoints |
+> | `CRAYFI_SECRET_KEY_TEST` | `{secretKey}` in URL **path** | `GET /payment/merchant/verify/{ref}/{key}` only |
+
+## 📚 Usage Guide
+
+### Register the module in `AppModule`
+
+```typescript
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CrayModule } from './modules/cray/cray.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    CrayModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        environment: config.get<'staging' | 'production' | 'test'>('CRAY_ENVIRONMENT', 'staging'),
+        // Scoped merchant key — Bearer token for main API endpoints
+        apiToken: config.get<string>('CRAYFI_MERCHANT_KEY_TEST'),
+        // Payment Initialization inline credentials
+        publicKey: config.get<string>('CRAYFI_PUBLIC_KEY_TEST'),
+        secretKey: config.get<string>('CRAYFI_SECRET_KEY_TEST'),
+        // Request signing — only needed if enabled in Cray Dashboard
+        requestSigningEnabled: config.get('CRAY_REQUEST_SIGNING_ENABLED') === 'true',
+        signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID'),
+        signingPrivateKey: config.get<string>('CRAY_SIGNING_PRIVATE_KEY'),
+        webhookSecret: config.get<string>('CRAY_WEBHOOK_SECRET'),
+        webhookAllowedIps: config
+          .get<string>('CRAY_WEBHOOK_ALLOWED_IPS', '')
+          .split(',')
+          .filter(Boolean),
+      }),
+    }),
+  ],
+  controllers: [],
+  providers: [],
+})
+export class AppModule {}
+```
+
+### Inject the service facade
+
+```typescript
+import { Inject, Injectable } from '@nestjs/common';
+import { CRAY_SERVICE, ICrayService } from './modules/cray';
+
+@Injectable()
+export class WalletFundingService {
+  constructor(@Inject(CRAY_SERVICE) private readonly cray: ICrayService) {}
+
+  async fundWallet(customerId: string, walletId: string, amount: string) {
+    return this.cray.createFundingSession({
+      customerId,
+      walletId,
+      amount,
+      reference: `fund-${Date.now()}`,
+      method: 'transfer',
+    });
+  }
+}
+```
+
+### Listening to domain events
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { FundingConfirmedEvent, TransferCompletedEvent } from './modules/cray';
+
+@Injectable()
+export class WalletEventListener {
+  @OnEvent('funding.confirmed')
+  handleFunding(event: FundingConfirmedEvent) {
+    console.log('Funding confirmed', event);
+  }
+
+  @OnEvent('transfer.completed')
+  handleTransfer(event: TransferCompletedEvent) {
+    console.log('Transfer completed', event);
+  }
+}
+```
+
+## 🗂️ Documentation
+
+- **API reference**: `docs/cray-api-v2-docs.md`
+- **Task checklist & acceptance criteria**: `docs/task-checklist.md`
+- **Project status & roadmap**: `STATUS.md`
+
+## 🧪 Testing
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run test              # unit tests
+npm run test:e2e          # end‑to‑end acceptance suite
+npm run test:cov          # coverage report
 ```
 
-## Run tests
+All tests must pass (`npm run build` should also compile without errors) before merging.
 
-```bash
-# unit tests
-$ npm run test
+---
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Built with ❤️ by the RewaPay team.

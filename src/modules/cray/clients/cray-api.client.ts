@@ -40,6 +40,16 @@ export class CrayApiClient {
     return this.rateLimiter;
   }
 
+  /** Public key (`lrp_...`) for Payment Initialization request bodies. */
+  get publicKey(): string | undefined {
+    return this.options.publicKey;
+  }
+
+  /** Secret key (`lrs_...`) for the payment-verify URL path. */
+  get secretKey(): string | undefined {
+    return this.options.secretKey;
+  }
+
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.executeRequest<T>({
       ...config,
