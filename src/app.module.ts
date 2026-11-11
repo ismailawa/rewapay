@@ -17,7 +17,9 @@ import { CrayModule } from './modules/cray/cray.module';
         // Payment Initialization inline credentials (no Bearer / no X-Signature)
         publicKey: config.get<string>('CRAYFI_PUBLIC_KEY_TEST'),
         secretKey: config.get<string>('CRAYFI_SECRET_KEY_TEST'),
-        // Request signing — only needed if enabled in Cray Dashboard
+        // Request signing — required by default on all Cray endpoints (Docs §Request Signing)
+        // Set CRAY_REQUEST_SIGNING_ENABLED=true + CRAY_SIGNING_PRIVATE_KEY to enable.
+        // Set to false only if Dashboard signing mode is "Off".
         requestSigningEnabled:
           config.get<string>('CRAY_REQUEST_SIGNING_ENABLED') === 'true',
         signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID'),
