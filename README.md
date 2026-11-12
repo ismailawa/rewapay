@@ -4,21 +4,23 @@ NestJS integration for the signed [Cray Finance v2 API](https://docs.crayfi.com/
 
 ## Required configuration
 
-Cray API keys carry exactly one scope. Collection and disbursement calls therefore require different keys. Request signing and encrypted sensitive-field storage are mandatory.
+Cray Secret Keys carry exactly one scope. Collection and disbursement calls therefore require different Bearer keys. Request signing is optional and adds `X-Signature` on top of Bearer authentication; encrypted sensitive-field storage remains mandatory.
 
 ```dotenv
 CRAY_ENVIRONMENT=staging
 CRAY_BASE_URL=https://sandbox.crayfi.io
 CRAY_COLLECTION_API_KEY=collection_scoped_key
 CRAY_DISBURSEMENT_API_KEY=disbursement_scoped_key
-CRAY_SIGNING_KEY_ID=registered_key_uuid
-CRAY_SIGNING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+CRAY_REQUEST_SIGNING_ENABLED=false
+# Required only when signing is enabled:
+CRAY_SIGNING_KEY_ID=
+CRAY_SIGNING_PRIVATE_KEY=
 CRAY_WEBHOOK_KEYS=webhook_scope_key_current,webhook_scope_key_previous
 CRAY_DATA_ENCRYPTION_KEY=secret_from_your_key_manager
 DATABASE_URL=postgresql://...
 ```
 
-The module fails during startup if either scoped key, the signing configuration, all webhook keys, or the encryption key is missing. Webhook keys support rotation; Cray's `Cray-Webhook-Key` hint selects a key by its final four characters.
+The module always fails during startup if either scoped Bearer key, all webhook keys, or the encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Webhook keys support rotation; Cray's `Cray-Webhook-Key` hint selects a key by its final four characters.
 
 ## Registration
 
@@ -30,8 +32,9 @@ CrayModule.forRoot({
   baseUrl: 'https://pay.crayfi.io',
   collectionApiKey: process.env.CRAY_COLLECTION_API_KEY!,
   disbursementApiKey: process.env.CRAY_DISBURSEMENT_API_KEY!,
-  signingKeyId: process.env.CRAY_SIGNING_KEY_ID!,
-  signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY!,
+  requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED === 'true',
+  signingKeyId: process.env.CRAY_SIGNING_KEY_ID || '',
+  signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY || '',
   webhookKeys: process.env.CRAY_WEBHOOK_KEYS!.split(','),
   dataEncryptionKey: process.env.CRAY_DATA_ENCRYPTION_KEY!,
   httpTimeoutMs: 15_000,
@@ -68,4 +71,4 @@ npm run build
 npm run test:e2e -- --runInBand
 ```
 
-The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification additionally requires real test-scoped Cray keys and a registered signing public key.
+The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires real test-scoped Cray keys; a registered signing key is additionally required when the sandbox merchant has signing enabled.

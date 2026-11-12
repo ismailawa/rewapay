@@ -27,6 +27,7 @@ describe('CrayModule', () => {
     expect(module.get(CRAY_MODULE_OPTIONS)).toEqual(expect.objectContaining({
       collectionApiKey: 'test_collection_key',
       disbursementApiKey: 'test_disbursement_key',
+      requestSigningEnabled: true,
       dataEncryptionKey: TEST_CRAY_OPTIONS.dataEncryptionKey,
     }));
   });

@@ -5,6 +5,7 @@ export const TEST_CRAY_OPTIONS: CrayModuleOptions = {
   baseUrl: 'https://sandbox.crayfi.io',
   collectionApiKey: 'test_collection_key',
   disbursementApiKey: 'test_disbursement_key',
+  requestSigningEnabled: true,
   signingPrivateKey: 'test_private_key',
   signingKeyId: '11111111-1111-4111-8111-111111111111',
   webhookKeys: ['test_webhook_key_1234'],

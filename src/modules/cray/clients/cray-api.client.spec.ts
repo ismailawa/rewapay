@@ -30,6 +30,7 @@ describe('CrayApiClient', () => {
     baseUrl: 'https://dev-gateman.v3.connectramp.com',
     collectionApiKey: 'test-collection-token',
     disbursementApiKey: 'test-disbursement-token',
+    requestSigningEnabled: true,
     signingPrivateKey: privateKeyPem,
     signingKeyId: '11111111-1111-4111-8111-111111111111',
     webhookKeys: ['test-webhook-key'],
@@ -61,7 +62,7 @@ describe('CrayApiClient', () => {
     );
   });
 
-  it('should generate and attach a valid mandatory ES256 signature', async () => {
+  it('should generate and attach a valid ES256 signature when enabled', async () => {
     const options = createOptions();
     const client = new CrayApiClient(options);
 
@@ -105,6 +106,19 @@ describe('CrayApiClient', () => {
     expect(isValid).toBe(true);
   });
 
+  it('should authenticate without X-Signature when request signing is disabled', async () => {
+    const client = new CrayApiClient(createOptions({
+      requestSigningEnabled: false,
+      signingPrivateKey: '',
+      signingKeyId: '',
+    }));
+    const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
+    await client.get('/balance');
+    const headers = requestSpy.mock.calls[0][0].headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer test-collection-token');
+    expect(headers['X-Signature']).toBeUndefined();
+  });
+
   it('should route payout requests through the disbursement-scoped key', async () => {
     const client = new CrayApiClient(createOptions());
     const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
@@ -125,6 +139,11 @@ describe('CrayApiClient', () => {
 
   it('should reject incomplete security configuration at startup', () => {
     expect(() => new CrayApiClient(createOptions({ signingKeyId: '' }))).toThrow('signingKeyId');
+    expect(() => new CrayApiClient(createOptions({
+      requestSigningEnabled: false,
+      signingKeyId: '',
+      signingPrivateKey: '',
+    }))).not.toThrow();
     expect(() => new CrayApiClient(createOptions({ webhookKeys: [] }))).toThrow('webhookKeys');
   });
 

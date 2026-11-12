@@ -48,7 +48,7 @@ As required by the *RewaPay x Cray Interface Contract (v0.1)*, this initial entr
 
 ### Decision 4: Refund Scope for First Release
 - **Decision:** **Implemented.**
-- Full and partial refunds use `POST /refund/initiate`; status uses `GET /refund/query/{reference}`. Refunds use the collection-scoped key, mandatory request signing, persistence, and facade-level idempotency.
+- Full and partial refunds use `POST /refund/initiate`; status uses `GET /refund/query/{reference}`. Refunds use the collection-scoped Bearer key, optional request signing, persistence, and facade-level idempotency.
 
 ### Decision 5: Amount Representation (NGN Decimal String vs Minor Units)
 - **Recommendation:** **Strict 2-decimal string NGN (e.g. `"100.00"`).**
@@ -67,7 +67,7 @@ The module is broken down into discrete, self-contained tasks. Each task is exec
 | Task # | Task Description | Status | Test Pace & Deliverables |
 | :--- | :--- | :--- | :--- |
 | **Task 1** | **Setup & Scaffolding via NestJS CLI** | **COMPLETED** | - Project scaffolded with `@nestjs/cli`<br>- Core configs, enums, interfaces, utilities (`MoneyUtil`, `ReferenceUtil`)<br>- Unit tests passing (`money.util.spec.ts`, `reference.util.spec.ts`, `cray.module.spec.ts`) |
-| **Task 2** | **Cray Client, ES256 Request Signing & Error Mapping** | **REMEDIATED** | - Mandatory ES256 signing for every request<br>- Separate collection/disbursement Bearer keys routed by endpoint scope<br>- Exact body-byte hashing, literal-plus query encoding, and fresh nonce/timestamp per retry<br>- Startup fails for missing scoped/signing/encryption configuration |
+| **Task 2** | **Cray Client, Optional ES256 Request Signing & Error Mapping** | **REMEDIATED** | - Scoped Bearer Secret Keys on every request<br>- Optional ES256 signing controlled by configuration<br>- Signing key material required only when enabled<br>- Exact body-byte hashing, literal-plus query encoding, and fresh nonce/timestamp per signed retry |
 | **Task 3** | **Customer & Virtual Accounts Management** | **REMEDIATED** | - Provider-specific Bloc/PalmPay permanent and one-time payloads<br>- Corporate account route<br>- Undocumented Wema HTTP path removed<br>- Encrypted account persistence |
 | **Task 4** | **Bank Directory & Beneficiary Validation** | **REMEDIATED** | - Cached bank list (`GET /payout/banks`)<br>- Fresh validation immediately before every payout<br>- Encrypted account persistence with deterministic lookup hash and last-four display field |
 | **Task 5** | **Payouts / Transfers Initiation & Requery** | **REMEDIATED** | - Payout dispatch (`POST /payout/disburse`)<br>- Provider transaction ID persisted separately and exclusively used for `/payout/requery/{transaction_id}`<br>- Database-atomic idempotency claim<br>- Failed/ambiguous executions are quarantined and never automatically replayed |
@@ -76,9 +76,9 @@ The module is broken down into discrete, self-contained tasks. Each task is exec
 | **Task 8** | **Idempotency & Database Persistence Layer** | **REMEDIATED** | - Database unique-constraint claim with canonical request hashing<br>- Completed response playback and payload mismatch rejection<br>- Concurrent callers cannot both execute<br>- Expired/retryable financial calls become `AMBIGUOUS` and require reconciliation; they are never automatically replayed |
 | **Task 9** | **Reconciliation Engine & Balance Snapshots** | **REMEDIATED** | - Platform balance retrieval and hourly snapshots via `GET /balance`<br>- Five-minute reconciliation schedule<br>- Requery only with valid provider transaction IDs<br>- Missing/ambiguous provider IDs are escalated for manual review<br>- Operational HTTP controllers are not registered |
 | **Task 10**| **Unified Service Facade (`ICrayService`) & Acceptance Suite** | **REMEDIATED** | - Unified in-process `CrayService` implementing all 11 current operations of `ICrayService`<br>- Refund status query included; Wema OTP facade removed<br>- Dual injection token support (`CrayService` and `CRAY_SERVICE`)<br>- Only the public webhook HTTP controller is registered |
-| **Task 11** | **Cray v2 Contract & Security Remediation** | **COMPLETED** | - Separate scoped keys and mandatory signing<br>- Provider-specific account contracts and real refunds<br>- Atomic/quarantined idempotency behavior<br>- HMAC verification for all webhook types with rotation and delivery fingerprints<br>- Correct provider-ID reconciliation and scheduled jobs<br>- Encrypted account storage, redacted webhook storage, migration, database-backed E2E coverage, and an aligned `.env.example` |
+| **Task 11** | **Cray v2 Contract & Security Remediation** | **COMPLETED** | - Separate scoped Bearer keys and configurable optional signing<br>- Provider-specific account contracts and real refunds<br>- Atomic/quarantined idempotency behavior<br>- HMAC verification for all webhook types with rotation and delivery fingerprints<br>- Correct provider-ID reconciliation and scheduled jobs<br>- Encrypted account storage, redacted webhook storage, migration, database-backed E2E coverage, and an aligned `.env.example` |
 
-**Current verification:** 25 unit/acceptance suites (133 tests), clean TypeScript build, and 1 database-backed E2E suite (2 tests) pass. Live sandbox verification remains a release gate because scoped Cray credentials and registered signing/webhook keys were not supplied.
+**Current verification:** 25 unit/acceptance suites (134 tests), clean TypeScript build, and 1 database-backed E2E suite (2 tests) pass. Live sandbox verification remains a release gate because scoped Cray credentials and webhook keys were not supplied; signing credentials are additionally needed only when enabled for that merchant.
 
 ---
 

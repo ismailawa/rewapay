@@ -13,6 +13,7 @@ export interface CrayModuleOptions {
   baseUrl: string;
   collectionApiKey: string;
   disbursementApiKey: string;
+  requestSigningEnabled: boolean;
   signingPrivateKey: string;
   signingKeyId: string;
   webhookKeys: string[];
@@ -47,6 +48,7 @@ export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
     baseUrl: process.env.CRAY_BASE_URL || defaultBaseUrl,
     collectionApiKey: process.env.CRAY_COLLECTION_API_KEY || '',
     disbursementApiKey: process.env.CRAY_DISBURSEMENT_API_KEY || '',
+    requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED?.toLowerCase() === 'true',
     signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY || '',
     signingKeyId: process.env.CRAY_SIGNING_KEY_ID || '',
     webhookKeys: process.env.CRAY_WEBHOOK_KEYS

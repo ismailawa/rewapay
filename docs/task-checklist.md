@@ -33,7 +33,7 @@
   - **Endpoints:** Global HTTP transport.
   - **Acceptance Criteria:**
     - [x] `CraySigner` builds canonical 5-line string (`METHOD\nPATH\nTIMESTAMP\nNONCE\nHASH`).
-    - [x] Signs using ES256 (ECDSA P-256 / SHA-256) with DER Base64 output.
+    - [x] Optionally signs using ES256 (ECDSA P-256 / SHA-256) with DER Base64 output.
     - [x] Formats `X-Signature: t=<ms>,n=<uuid>,kid=<keyId>,v1=<sig>` per `docs.crayfi.com/v2`.
     - [x] `CrayRateLimiter` enforces 60 RPM for general endpoints and 30 RPM for financial endpoints.
     - [x] `CrayErrorMapper` maps HTTP 400/404/409/422/429/5xx into typed `CrayException`.
@@ -121,7 +121,7 @@
 
 - [x] **Task 11: Cray v2 Contract & Security Remediation**
   - [x] Separate collection/disbursement keys and route them by documented scope.
-  - [x] Require ES256 signing and correct literal-plus query canonicalization.
+  - [x] Support optional ES256 signing and correct literal-plus query canonicalization.
   - [x] Use provider-specific Bloc, PalmPay, one-time, and corporate account payloads.
   - [x] Require real checkout customer details and support card, transfer, and mobile money.
   - [x] Implement full/partial refund initiation and refund status query.
@@ -130,6 +130,6 @@
   - [x] Verify every webhook HMAC, support key rotation, and fingerprint exact deliveries.
   - [x] Encrypt account numbers and persist only redacted webhook payloads.
   - [x] Run scheduled reconciliation/balance snapshots and provide a security backfill migration.
-  - [x] Align `.env.example` with scoped keys, mandatory signing, rotating webhook keys, encryption, and `DATABASE_URL`.
+  - [x] Align `.env.example` with scoped Bearer keys, optional signing, rotating webhook keys, encryption, and `DATABASE_URL`.
   - [x] Pass unit, build, and database-backed E2E verification.
-  - [ ] Run the opt-in live sandbox contract suite with externally supplied scoped credentials and registered signing/webhook keys.
+  - [ ] Run the opt-in live sandbox contract suite with externally supplied scoped credentials, webhook keys, and signing credentials when enabled.

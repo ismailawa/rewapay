@@ -108,38 +108,34 @@ export class CrayApiClient {
       Authorization: `Bearer ${this.resolveApiKey(url)}`,
     };
 
-    // 5. Execute with per-attempt nonce (GET retries need a fresh nonce each time)
+    // 5. Execute. When signing is enabled, every attempt gets a fresh nonce.
     const isGet = method === 'GET';
     const maxRetries = isGet ? this.options.maxRetries : 0;
     let attempt = 0;
 
     while (attempt <= maxRetries) {
-      // Build fresh X-Signature for every attempt (nonce must be unique per request)
       const attemptHeaders = { ...headers };
-
-      const timestampMs = Date.now();
-      const nonce = randomUUID();
-
-      const canonicalMessage = CraySigner.buildCanonicalMessage({
-        method,
-        pathWithQuery,
-        timestampMs,
-        nonce,
-        bodyBytes,
-      });
-
-      const signature = CraySigner.sign(canonicalMessage, this.options.signingPrivateKey);
-
-      attemptHeaders['X-Signature'] = CraySigner.formatHeader({
-        timestampMs,
-        nonce,
-        signature,
-        keyId: this.options.signingKeyId,
-      });
-
-      this.logger.debug(
-        `[Cray] Signed ${method} ${url} | kid=${this.options.signingKeyId} | t=${timestampMs} | n=${nonce}`,
-      );
+      if (this.options.requestSigningEnabled) {
+        const timestampMs = Date.now();
+        const nonce = randomUUID();
+        const canonicalMessage = CraySigner.buildCanonicalMessage({
+          method,
+          pathWithQuery,
+          timestampMs,
+          nonce,
+          bodyBytes,
+        });
+        const signature = CraySigner.sign(canonicalMessage, this.options.signingPrivateKey);
+        attemptHeaders['X-Signature'] = CraySigner.formatHeader({
+          timestampMs,
+          nonce,
+          signature,
+          keyId: this.options.signingKeyId,
+        });
+        this.logger.debug(
+          `[Cray] Signed ${method} ${url} | kid=${this.options.signingKeyId} | t=${timestampMs} | n=${nonce}`,
+        );
+      }
 
       try {
         const response: AxiosResponse<T> = await this.axiosInstance.request<T>({
@@ -181,10 +177,14 @@ export class CrayApiClient {
     const missing = [
       ['collectionApiKey', this.options.collectionApiKey],
       ['disbursementApiKey', this.options.disbursementApiKey],
-      ['signingPrivateKey', this.options.signingPrivateKey],
-      ['signingKeyId', this.options.signingKeyId],
       ['webhookKeys', this.options.webhookKeys?.length ? 'configured' : ''],
       ['dataEncryptionKey', this.options.dataEncryptionKey],
+      ...(this.options.requestSigningEnabled
+        ? [
+            ['signingPrivateKey', this.options.signingPrivateKey],
+            ['signingKeyId', this.options.signingKeyId],
+          ]
+        : []),
     ]
       .filter(([, value]) => !value)
       .map(([name]) => name);

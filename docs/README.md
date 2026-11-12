@@ -6,7 +6,7 @@ The implementation is validated against [`cray-api-v2-docs.md`](./cray-api-v2-do
 
 - Collection-scoped: `POST /virtual-accounts/create`, `POST /corporate-accounts/create`, hosted checkout initialize/query, `GET /query/{reference}`, `POST /charge`, `GET /balance`, and refund initiate/query.
 - Disbursement-scoped: bank directory, account validation, payout disbursement, and payout requery.
-- All API calls use mandatory ES256 signing over the five-line canonical request. Collection and disbursement keys are selected by endpoint scope.
+- All API calls use a scope-appropriate Bearer Secret Key. Optional ES256 signing adds `X-Signature` over the five-line canonical request when enabled.
 - Webhooks use a webhook-scope API key, key-hint rotation, HMAC-SHA256 verification of the `data` object, exact-delivery fingerprinting, redacted persistence, and authoritative payout/payin requery.
 
 ## Safety behavior
