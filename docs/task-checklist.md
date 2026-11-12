@@ -136,5 +136,6 @@
   - [x] Register the host application's TypeORM `DataSource` from `DATABASE_URL` before constructing Cray repositories.
   - [x] E2E-import the real host `AppModule` and prove its `DataSource` and Cray repositories construct together.
   - [x] Exercise the entire Cray module through database-backed E2E tests: all 11 facade operations, provider-specific accounts, all hosted checkout methods, payout/refund lifecycles, direct collection helpers, balance snapshots, reconciliation, encrypted persistence, and signed webhook transitions/deduplication.
+  - [x] Provide an opt-in, production-guarded live suite for read-only Cray sandbox authentication checks through both scoped keys.
   - [x] Pass unit, build, and database-backed E2E verification.
-  - [ ] Run the opt-in live sandbox contract suite with externally supplied scoped credentials, webhook keys, and signing credentials when enabled.
+  - [ ] Pass the opt-in live sandbox contract suite with valid scoped credentials (12 November 2026 attempt reached Cray but both configured non-`lrs_` keys were rejected as invalid).
