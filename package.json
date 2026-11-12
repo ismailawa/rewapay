@@ -21,8 +21,8 @@
     "infra:up": "docker compose up -d --wait postgres",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f postgres",
-    "migration:run": "typeorm-ts-node-esm migration:run -- -d src/database/cray-data-source.ts",
-    "migration:revert": "typeorm-ts-node-esm migration:revert -- -d src/database/cray-data-source.ts"
+    "migration:run": "typeorm-ts-node-esm migration:run -d src/database/cray-data-source.ts",
+    "migration:revert": "typeorm-ts-node-esm migration:revert -d src/database/cray-data-source.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.0",
