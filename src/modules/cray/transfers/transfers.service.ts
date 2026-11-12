@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BanksService } from '../banks/banks.service';
@@ -13,6 +13,9 @@ import {
 import { CrayTransfer } from '../entities/cray-transfer.entity';
 import { MoneyUtil } from '../utils/money.util';
 import { ReferenceUtil } from '../utils/reference.util';
+import { FieldEncryptionUtil } from '../utils/field-encryption.util';
+import { CRAY_MODULE_OPTIONS } from '../config/cray.constants';
+import type { CrayModuleOptions } from '../config/cray.config';
 
 interface CrayDisburseResponse {
   success?: boolean;
@@ -55,6 +58,7 @@ export class TransfersService {
   constructor(
     private readonly apiClient: CrayApiClient,
     private readonly banksService: BanksService,
+    @Inject(CRAY_MODULE_OPTIONS) private readonly options: CrayModuleOptions,
     @Optional()
     @InjectRepository(CrayTransfer)
     private readonly transferRepo?: Repository<CrayTransfer>,
@@ -108,22 +112,19 @@ export class TransfersService {
       };
     }
 
-    // 3. Obtain ref_id from beneficiary lookup or account validation
-    let refId: string | undefined;
-    const existingBeneficiary = await this.banksService.findBeneficiary(
-      input.destination.bankCode,
-      input.destination.accountNumber,
-    );
-
-    if (existingBeneficiary?.providerReference) {
-      refId = existingBeneficiary.providerReference;
-    } else {
-      const validated = await this.banksService.validateBankAccount({
-        accountNumber: input.destination.accountNumber,
-        bankCode: input.destination.bankCode,
-        customerId: input.customerId,
+    // Cray documents ref_id as short-lived: validate immediately before every payout.
+    const validated = await this.banksService.validateBankAccount({
+      accountNumber: input.destination.accountNumber,
+      bankCode: input.destination.bankCode,
+      customerId: input.customerId,
+    });
+    const refId = validated.refId;
+    if (!refId) {
+      throw new CrayException({
+        code: CrayErrorCode.PROVIDER_ERROR,
+        message: 'Cray account validation did not return the required ref_id.',
+        retryable: false,
       });
-      refId = validated.refId;
     }
 
     // 4. Record initial transfer state in database
@@ -133,7 +134,8 @@ export class TransfersService {
       reference: input.reference,
       amount: input.amount,
       currency: 'NGN',
-      accountNumber: input.destination.accountNumber,
+      accountNumber: FieldEncryptionUtil.encrypt(input.destination.accountNumber, this.options.dataEncryptionKey),
+      accountNumberLast4: input.destination.accountNumber.slice(-4),
       bankCode: input.destination.bankCode,
       accountName: input.destination.accountName,
       refId,
@@ -302,4 +304,3 @@ export class TransfersService {
     return transfer;
   }
 }
-

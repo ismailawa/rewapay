@@ -23,9 +23,15 @@ export class CrayBeneficiary {
   @Column({ name: 'bank_name', type: 'varchar', length: 128, nullable: true })
   bankName?: string;
 
-  @Index()
-  @Column({ name: 'account_number', type: 'varchar', length: 32 })
+  @Column({ name: 'account_number_encrypted', type: 'text' })
   accountNumber: string;
+
+  @Index()
+  @Column({ name: 'account_number_hash', type: 'varchar', length: 64 })
+  accountNumberHash: string;
+
+  @Column({ name: 'account_number_last4', type: 'varchar', length: 4 })
+  accountNumberLast4: string;
 
   @Column({ name: 'account_name', type: 'varchar', length: 255 })
   accountName: string;
@@ -46,4 +52,3 @@ export class CrayBeneficiary {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-

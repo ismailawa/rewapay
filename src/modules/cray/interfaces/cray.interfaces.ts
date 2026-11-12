@@ -39,16 +39,55 @@ export class CrayException extends Error {
 // Operation Inputs & Results (Interface Contract v0.1 Section 3)
 // -------------------------------------------------------------
 
-export interface CreateVirtualAccountInput {
+interface VirtualAccountBaseInput {
   customerId: string;
-  fullName: string;
   email: string;
-  bvn: string;
-  nin?: string;
-  accountType?: 'Permanent' | 'onetime';
-  customerType?: 'Individual' | 'Corporate';
-  rcNumber?: string;
+  accountName: string;
 }
+
+export interface CreateBlocPermanentAccountInput extends VirtualAccountBaseInput {
+  provider: 'Bloc';
+  accountType: 'Permanent';
+  firstName?: string;
+  lastName?: string;
+  otherName?: string;
+  dateOfBirth?: string;
+}
+
+export interface CreatePalmPayPermanentAccountInput extends VirtualAccountBaseInput {
+  provider: 'palmpay';
+  accountType: 'Permanent';
+  customerName: string;
+  bvn?: string;
+  nin?: string;
+}
+
+export interface CreateOneTimeAccountInput extends VirtualAccountBaseInput {
+  provider: 'Bloc' | 'palmpay';
+  accountType: 'onetime';
+  amount: string;
+  returnUrl?: string;
+  orderExpireSeconds?: number;
+}
+
+export interface CreateCorporateAccountInput {
+  customerId: string;
+  accountType: 'corporate';
+  fullName: string;
+  bvn: string;
+  rcNumber: string;
+  phone: string;
+  email: string;
+  businessType: 'COMPANY' | 'BUSINESS_NAME' | 'INCORPORATED_TRUSTEES' | 'LIMITED_PARTNERSHIP' | 'LIMITED_LIABILITY_PARTNERSHIP';
+  businessName?: string;
+  tin?: string;
+}
+
+export type CreateVirtualAccountInput =
+  | CreateBlocPermanentAccountInput
+  | CreatePalmPayPermanentAccountInput
+  | CreateOneTimeAccountInput
+  | CreateCorporateAccountInput;
 
 export interface VirtualAccountResult {
   accountNumber: string;
@@ -56,15 +95,6 @@ export interface VirtualAccountResult {
   bankName: string;
   bankCode?: string;
   status: CrayStatus | 'OTP_REQUIRED';
-}
-
-export interface SubmitVirtualAccountOtpInput {
-  customerId: string;
-  otp: string;
-}
-
-export interface SubmitVirtualAccountOtpResult {
-  status: CrayStatus;
 }
 
 export interface VirtualAccountDetails {
@@ -83,13 +113,17 @@ export interface CreateFundingSessionInput {
   walletId: string;
   amount: string; // NGN decimal string, e.g. "100.00"
   reference: string; // max 64 chars
-  method: FundingMethod | string;
+  method: FundingMethod | 'card' | 'transfer' | 'mobile_money';
+  customer: { name: string; email: string };
+  token?: string;
+  callbackUrl?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface FundingSessionResult {
   sessionId: string;
   paymentUrl: string;
-  expiresAt: string; // ISO 8601 UTC
+  expiresAt?: string; // ISO 8601 UTC when provided by Cray
 }
 
 export interface FundingStatusResult {
@@ -139,12 +173,17 @@ export interface TransferStatusResult {
 
 export interface InitiateRefundInput {
   reference: string;
-  amount: string;
+  amount?: string;
 }
 
 export interface RefundResult {
   refundId: string;
   status: CrayStatus;
+}
+
+export interface RefundStatusResult extends RefundResult {
+  amount?: string;
+  failureReason?: string;
 }
 
 export interface PlatformBalanceResult {
@@ -163,7 +202,7 @@ export interface FundingConfirmedEvent {
   walletId: string;
   reference: string;
   amount: string;
-  currency: 'NGN';
+  currency: string;
   confirmedAt: string; // ISO 8601 UTC
 }
 
@@ -179,7 +218,7 @@ export interface TransferCompletedEvent {
   transferId: string;
   reference: string;
   amount: string;
-  currency: 'NGN';
+  currency: string;
   completedAt: string; // ISO 8601 UTC
 }
 
@@ -196,7 +235,7 @@ export interface RefundCompletedEvent {
   refundId: string;
   reference: string;
   amount: string;
-  currency: 'NGN';
+  currency: string;
   completedAt: string; // ISO 8601 UTC
 }
 
@@ -206,7 +245,6 @@ export interface RefundCompletedEvent {
 
 export interface ICrayService {
   createVirtualAccount(input: CreateVirtualAccountInput): Promise<VirtualAccountResult>;
-  submitVirtualAccountOtp(input: SubmitVirtualAccountOtpInput): Promise<SubmitVirtualAccountOtpResult>;
   getVirtualAccount(customerId: string): Promise<VirtualAccountDetails | null>;
 
   createFundingSession(input: CreateFundingSessionInput): Promise<FundingSessionResult>;
@@ -218,6 +256,6 @@ export interface ICrayService {
   getTransferStatus(reference: string): Promise<TransferStatusResult>;
 
   initiateRefund(input: InitiateRefundInput): Promise<RefundResult>;
+  getRefundStatus(reference: string): Promise<RefundStatusResult>;
   getPlatformBalance(currency?: string): Promise<PlatformBalanceResult>;
 }
-

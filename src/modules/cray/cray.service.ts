@@ -1,7 +1,5 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { ConfigType } from '@nestjs/config';
-import { crayConfig } from './config/cray.config';
-import { CrayErrorCode, CrayStatus } from './enums/cray.enums';
+import { Injectable } from '@nestjs/common';
+import { CrayErrorCode } from './enums/cray.enums';
 import {
   BankItem,
   CreateFundingSessionInput,
@@ -14,8 +12,7 @@ import {
   InitiateTransferInput,
   PlatformBalanceResult,
   RefundResult,
-  SubmitVirtualAccountOtpInput,
-  SubmitVirtualAccountOtpResult,
+  RefundStatusResult,
   TransferResult,
   TransferStatusResult,
   ValidateBankAccountInput,
@@ -29,8 +26,7 @@ import { TransfersService } from './transfers/transfers.service';
 import { CheckoutService } from './checkout/checkout.service';
 import { ReconciliationService } from './reconciliation/reconciliation.service';
 import { IdempotencyService } from './idempotency/idempotency.service';
-import { MoneyUtil } from './utils/money.util';
-import { ReferenceUtil } from './utils/reference.util';
+import { RefundsService } from './refunds/refunds.service';
 
 /**
  * Unified Cray service facade implementing the in-process ICrayService interface.
@@ -40,8 +36,6 @@ import { ReferenceUtil } from './utils/reference.util';
  */
 @Injectable()
 export class CrayService implements ICrayService {
-  private readonly logger = new Logger(CrayService.name);
-
   constructor(
     private readonly accountsService: AccountsService,
     private readonly banksService: BanksService,
@@ -49,9 +43,7 @@ export class CrayService implements ICrayService {
     private readonly checkoutService: CheckoutService,
     private readonly reconciliationService: ReconciliationService,
     private readonly idempotencyService: IdempotencyService,
-    @Optional()
-    @Inject(crayConfig.KEY)
-    private readonly config?: ConfigType<typeof crayConfig>,
+    private readonly refundsService: RefundsService,
   ) {}
 
   // =====================================================================
@@ -62,12 +54,6 @@ export class CrayService implements ICrayService {
     input: CreateVirtualAccountInput,
   ): Promise<VirtualAccountResult> {
     return this.accountsService.createVirtualAccount(input);
-  }
-
-  async submitVirtualAccountOtp(
-    input: SubmitVirtualAccountOtpInput,
-  ): Promise<SubmitVirtualAccountOtpResult> {
-    return this.accountsService.submitVirtualAccountOtp(input);
   }
 
   async getVirtualAccount(
@@ -83,18 +69,16 @@ export class CrayService implements ICrayService {
   async createFundingSession(
     input: CreateFundingSessionInput,
   ): Promise<FundingSessionResult> {
-    if (!input.customerId || !input.walletId || !input.amount || !input.reference) {
+    if (!input.customerId || !input.walletId || !input.amount || !input.reference || !input.customer?.name || !input.customer?.email) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
-        message: 'customerId, walletId, amount, and reference are required.',
+        message: 'customerId, walletId, amount, reference, and real customer details are required.',
         retryable: false,
       });
     }
 
-    const defaultPaymentMethod = input.method === 'card' ? 'card' : 'transfer';
-
     return this.idempotencyService.execute({
-      key: input.reference,
+      key: `funding:${input.reference}`,
       operation: 'createFundingSession',
       payload: input,
       fn: async () => {
@@ -104,12 +88,12 @@ export class CrayService implements ICrayService {
           reference: input.reference,
           customerId: input.customerId,
           walletId: input.walletId,
-          defaultPaymentMethod,
+          defaultPaymentMethod: input.method,
           feeBearer: 'merchant',
-          customer: {
-            name: `Customer ${input.customerId}`,
-            email: `${input.customerId}@customer.rewapay.io`,
-          },
+          customer: input.customer,
+          token: input.token,
+          callback_url: input.callbackUrl,
+          metadata: input.metadata,
           narration: `Wallet funding for ${input.walletId}`,
         });
       },
@@ -148,7 +132,7 @@ export class CrayService implements ICrayService {
     }
 
     return this.idempotencyService.execute({
-      key: input.reference,
+      key: `transfer:${input.reference}`,
       operation: 'initiateTransfer',
       payload: input,
       fn: async () => {
@@ -162,26 +146,20 @@ export class CrayService implements ICrayService {
   }
 
   // =====================================================================
-  // 5. Refunds (Section 3.5 - Decision 4: Deferred / Feature-Gated)
+  // 5. Refunds
   // =====================================================================
 
   async initiateRefund(input: InitiateRefundInput): Promise<RefundResult> {
-    const refundsEnabled = process.env.CRAY_ENABLE_REFUNDS === 'true';
+    return this.idempotencyService.execute({
+      key: `refund:${input.reference}:${input.amount || 'full'}`,
+      operation: 'initiateRefund',
+      payload: input,
+      fn: () => this.refundsService.initiate(input),
+    });
+  }
 
-    if (!refundsEnabled) {
-      this.logger.warn(`Refund requested for ref ${input.reference} but refunds are deferred to Phase 2.`);
-      throw new CrayException({
-        code: CrayErrorCode.NOT_SUPPORTED,
-        message: 'Refunds are currently disabled or pending provider specification (Deferred to Phase 2).',
-        retryable: false,
-      });
-    }
-
-    // When enabled post-MVP:
-    return {
-      refundId: ReferenceUtil.generate('ref_refund'),
-      status: CrayStatus.PENDING,
-    };
+  async getRefundStatus(reference: string): Promise<RefundStatusResult> {
+    return this.refundsService.getStatus(reference);
   }
 
   // =====================================================================
@@ -192,4 +170,3 @@ export class CrayService implements ICrayService {
     return this.reconciliationService.getPlatformBalance(currency || 'NGN');
   }
 }
-

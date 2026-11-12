@@ -28,11 +28,12 @@ describe('CrayApiClient', () => {
   const createOptions = (overrides?: Partial<CrayModuleOptions>): CrayModuleOptions => ({
     environment: 'staging',
     baseUrl: 'https://dev-gateman.v3.connectramp.com',
-    apiToken: 'test-api-token',
-    requestSigningEnabled: false,
-    signingPrivateKey: undefined,
-    webhookSecret: 'secret',
-    webhookAllowedIps: [],
+    collectionApiKey: 'test-collection-token',
+    disbursementApiKey: 'test-disbursement-token',
+    signingPrivateKey: privateKeyPem,
+    signingKeyId: '11111111-1111-4111-8111-111111111111',
+    webhookKeys: ['test-webhook-key'],
+    dataEncryptionKey: 'test-data-encryption-key',
     httpTimeoutMs: 5000,
     maxRetries: 2,
     generalRpm: 60,
@@ -49,22 +50,19 @@ describe('CrayApiClient', () => {
       .spyOn(client.axios, 'request')
       .mockResolvedValue(mockResponse as never);
 
-    const result = await client.get('/api/balance');
+    const result = await client.get('/balance');
     expect(result).toEqual({ success: true });
     expect(requestSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer test-api-token',
+          Authorization: 'Bearer test-collection-token',
         }),
       }),
     );
   });
 
-  it('should generate and attach valid ES256 signature when requestSigningEnabled is true', async () => {
-    const options = createOptions({
-      requestSigningEnabled: true,
-      signingPrivateKey: privateKeyPem,
-    });
+  it('should generate and attach a valid mandatory ES256 signature', async () => {
+    const options = createOptions();
     const client = new CrayApiClient(options);
 
     let capturedHeaders: Record<string, string> = {};
@@ -81,6 +79,7 @@ describe('CrayApiClient', () => {
     expect(sigHeader).toContain('t=');
     expect(sigHeader).toContain('n=');
     expect(sigHeader).toContain('v1=');
+    expect(sigHeader).toContain('kid=11111111-1111-4111-8111-111111111111');
 
     const params = Object.fromEntries(
       sigHeader.split(',').map((p) => {
@@ -104,6 +103,29 @@ describe('CrayApiClient', () => {
       publicKeyPem,
     );
     expect(isValid).toBe(true);
+  });
+
+  it('should route payout requests through the disbursement-scoped key', async () => {
+    const client = new CrayApiClient(createOptions());
+    const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
+    await client.get('/payout/banks');
+    expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: 'Bearer test-disbursement-token' }),
+    }));
+  });
+
+  it('transmits the same sorted and encoded query path that it signs', async () => {
+    const client = new CrayApiClient(createOptions());
+    const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
+    await client.get('/balance?search=a+b&currency=NGN');
+    expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/balance?currency=NGN&search=a%2Bb',
+    }));
+  });
+
+  it('should reject incomplete security configuration at startup', () => {
+    expect(() => new CrayApiClient(createOptions({ signingKeyId: '' }))).toThrow('signingKeyId');
+    expect(() => new CrayApiClient(createOptions({ webhookKeys: [] }))).toThrow('webhookKeys');
   });
 
   it('should map Axios errors to typed CrayException', async () => {
@@ -154,6 +176,11 @@ describe('CrayApiClient', () => {
     const result = await client.get('/payout/banks?countryCode=NG');
     expect(result).toEqual({ banks: [] });
     expect(requestSpy).toHaveBeenCalledTimes(2);
+    const firstSignature = (requestSpy.mock.calls[0][0].headers as Record<string, string>)['X-Signature'];
+    const secondSignature = (requestSpy.mock.calls[1][0].headers as Record<string, string>)['X-Signature'];
+    const nonce = (value: string) => value.split(',').find((part) => part.startsWith('n='));
+    expect(nonce(firstSignature)).toBeDefined();
+    expect(nonce(secondSignature)).toBeDefined();
+    expect(nonce(firstSignature)).not.toBe(nonce(secondSignature));
   });
 });
-

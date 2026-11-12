@@ -52,10 +52,42 @@ export class IdempotencyService {
     const trimmedKey = key.trim();
     const requestHash = this.hashPayload(payload);
 
-    // 1. Check existing record
-    let record = await this.findByKey(trimmedKey);
+    // Claim the unique key before executing. Repository insert relies on the
+    // database unique constraint, so two processes cannot both win.
+    let record = this.repo
+      ? await this.findByKey(trimmedKey)
+      : this.memoryRecords.get(trimmedKey) || null;
+    let newlyClaimed = false;
+    if (!record) {
+      const candidate: Partial<CrayIdempotencyRecord> = {
+        idempotencyKey: trimmedKey,
+        operation,
+        requestHash,
+        status: 'PENDING',
+        lockedAt: new Date(),
+        expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+      };
+      if (this.repo) {
+        let inserted = false;
+        try {
+          await this.repo.insert(candidate);
+          inserted = true;
+        } catch {
+          // Another process may have inserted the same unique key.
+        }
+        record = await this.findByKey(trimmedKey);
+        newlyClaimed = inserted && !!record;
+      } else {
+        const timestamp = new Date();
+        record = {
+          id: Math.random().toString(), createdAt: timestamp, updatedAt: timestamp, ...candidate,
+        } as CrayIdempotencyRecord;
+        this.memoryRecords.set(trimmedKey, record);
+        newlyClaimed = true;
+      }
+    }
 
-    if (record) {
+    if (record && !newlyClaimed) {
       // Check payload hash match
       if (record.requestHash !== requestHash) {
         this.logger.warn(
@@ -78,6 +110,16 @@ export class IdempotencyService {
         }
       }
 
+      if (record.status === 'FAILED' || record.status === 'AMBIGUOUS') {
+        throw new CrayException({
+          code: CrayErrorCode.DUPLICATE_REFERENCE,
+          message: record.status === 'AMBIGUOUS'
+            ? `Idempotency key '${trimmedKey}' has an ambiguous prior result and requires reconciliation.`
+            : `Idempotency key '${trimmedKey}' previously failed; use a new reference after correcting the request.`,
+          retryable: false,
+        });
+      }
+
       // If pending, check concurrency lock
       if (record.status === 'PENDING') {
         const lockAgeMs = Date.now() - new Date(record.lockedAt).getTime();
@@ -92,23 +134,18 @@ export class IdempotencyService {
           });
         }
 
-        // Lock expired — take over lock
-        this.logger.warn(`Taking over expired lock for key '${trimmedKey}'`);
-        record.lockedAt = new Date();
-        record = await this.saveRecord(record);
+        // A stale in-flight financial operation is ambiguous. Never execute it again.
+        record.status = 'AMBIGUOUS';
+        await this.saveRecord(record);
+        throw new CrayException({
+          code: CrayErrorCode.DUPLICATE_REFERENCE,
+          message: `Expired lock for '${trimmedKey}' requires reconciliation before any retry.`,
+          retryable: false,
+        });
       }
-    } else {
-      // 2. Create pending record
-      const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
-      record = await this.saveRecord({
-        idempotencyKey: trimmedKey,
-        operation,
-        requestHash,
-        status: 'PENDING',
-        lockedAt: new Date(),
-        expiresAt,
-      });
     }
+
+    if (!record) throw new Error('Unable to claim idempotency key');
 
     // 3. Execute the operation
     try {
@@ -121,8 +158,7 @@ export class IdempotencyService {
 
       return result;
     } catch (err) {
-      // Mark FAILED
-      record.status = 'FAILED';
+      record.status = err instanceof CrayException && err.retryable ? 'AMBIGUOUS' : 'FAILED';
       await this.saveRecord(record);
       throw err;
     }
@@ -193,4 +229,3 @@ export class IdempotencyService {
     return `{${parts.join(',')}}`;
   }
 }
-

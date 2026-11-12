@@ -57,6 +57,14 @@ describe('CraySigner', () => {
     });
   });
 
+  describe('canonicalizePath', () => {
+    it('preserves a literal plus as %2B and sorts encoded query pairs', () => {
+      expect(CraySigner.canonicalizePath('/balance?search=a+b&currency=NGN&search=a b')).toBe(
+        '/balance?currency=NGN&search=a%20b&search=a%2Bb',
+      );
+    });
+  });
+
   describe('sign and verify', () => {
     it('should sign canonical message with ES256 and successfully verify with public key', () => {
       const canonicalMessage = CraySigner.buildCanonicalMessage({
@@ -98,4 +106,3 @@ describe('CraySigner', () => {
     });
   });
 });
-

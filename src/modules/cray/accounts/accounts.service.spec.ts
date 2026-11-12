@@ -1,215 +1,61 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { AccountsService } from './accounts.service';
 import { CrayApiClient } from '../clients/cray-api.client';
-import { CrayErrorCode, CrayStatus } from '../enums/cray.enums';
+import { CRAY_MODULE_OPTIONS } from '../config/cray.constants';
+import { TEST_CRAY_OPTIONS } from '../testing/test-options';
 import { CrayException } from '../interfaces/cray.interfaces';
 
-describe('AccountsService', () => {
+describe('AccountsService Cray v2 contracts', () => {
   let service: AccountsService;
-  let apiClient: jest.Mocked<CrayApiClient>;
+  let api: jest.Mocked<CrayApiClient>;
 
   beforeEach(async () => {
-    const mockApiClient = {
-      post: jest.fn(),
-      get: jest.fn(),
-    };
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AccountsService,
-        {
-          provide: CrayApiClient,
-          useValue: mockApiClient,
-        },
-      ],
-    }).compile();
-
-    service = module.get<AccountsService>(AccountsService);
-    apiClient = module.get(CrayApiClient);
+    const module = await Test.createTestingModule({ providers: [
+      AccountsService,
+      { provide: CrayApiClient, useValue: { post: jest.fn() } },
+      { provide: CRAY_MODULE_OPTIONS, useValue: TEST_CRAY_OPTIONS },
+    ] }).compile();
+    service = module.get(AccountsService);
+    api = module.get(CrayApiClient);
   });
 
-  describe('createVirtualAccount', () => {
-    it('should throw INVALID_INPUT if mandatory fields are missing', async () => {
-      await expect(
-        service.createVirtualAccount({
-          customerId: '',
-          fullName: 'Test User',
-          email: 'test@example.com',
-          bvn: '12345678901',
-        }),
-      ).rejects.toThrow(CrayException);
+  const response = { success: true, data: { id: 'va_1', account_number: '0123456789', account_name: 'ACME-Jane', bank: 'Bloc MFB', sort_code: '51411' } };
 
-      try {
-        await service.createVirtualAccount({
-          customerId: 'cust_1',
-          fullName: 'Test User',
-          email: 'test@example.com',
-          bvn: '',
-        });
-      } catch (err) {
-        expect((err as CrayException).code).toBe(CrayErrorCode.INVALID_INPUT);
-      }
-    });
-
-    it('should successfully create virtual account when provider returns account array', async () => {
-      apiClient.post.mockResolvedValueOnce({
-        status: true,
-        data: [
-          {
-            accountNumber: '0123456789',
-            accountName: 'Test User',
-            bankName: 'Wema Bank',
-            bankCode: '035',
-          },
-        ],
-      });
-
-      const result = await service.createVirtualAccount({
-        customerId: 'cust_1',
-        fullName: 'Test User',
-        email: 'user@example.com',
-        bvn: '22223333444',
-      });
-
-      expect(result.accountNumber).toBe('0123456789');
-      expect(result.accountName).toBe('Test User');
-      expect(result.bankName).toBe('Wema Bank');
-      expect(result.bankCode).toBe('035');
-      expect(result.status).toBe(CrayStatus.SUCCESSFUL);
-      expect(apiClient.post).toHaveBeenCalledWith(
-        '/virtual-accounts/create',
-        expect.objectContaining({
-          currency: 'NGN',
-          customer_email: 'user@example.com',
-          bvn: '22223333444',
-        }),
-      );
-    });
-
-    it('should return status OTP_REQUIRED if provider response indicates OTP requirement', async () => {
-      apiClient.post.mockResolvedValueOnce({
-        status: 'OTP_REQUIRED',
-        message: 'OTP verification required for Wema Bank virtual account',
-      });
-
-      const result = await service.createVirtualAccount({
-        customerId: 'cust_otp_1',
-        fullName: 'OTP User',
-        email: 'otpuser@example.com',
-        bvn: '12345678901',
-      });
-
-      expect(result.status).toBe('OTP_REQUIRED');
-      expect(result.bankName).toBe('Wema Bank');
-      expect(result.accountNumber).toBe('');
-    });
-
-    it('should return existing active account on duplicate call without re-querying provider', async () => {
-      apiClient.post.mockResolvedValueOnce({
-        data: {
-          accountNumber: '9988776655',
-          accountName: 'Existing User',
-          bankName: 'Providus Bank',
-          bankCode: '101',
-        },
-      });
-
-      // First call
-      const first = await service.createVirtualAccount({
-        customerId: 'cust_dup',
-        fullName: 'Existing User',
-        email: 'dup@example.com',
-        bvn: '11122233344',
-      });
-      expect(first.accountNumber).toBe('9988776655');
-
-      // Second call with same customerId
-      const second = await service.createVirtualAccount({
-        customerId: 'cust_dup',
-        fullName: 'Existing User',
-        email: 'dup@example.com',
-        bvn: '11122233344',
-      });
-
-      expect(second.accountNumber).toBe('9988776655');
-      // Provider should only have been called once
-      expect(apiClient.post).toHaveBeenCalledTimes(1);
-    });
+  it('builds the exact Bloc permanent payload and decrypts stored account details', async () => {
+    api.post.mockResolvedValue(response);
+    const input = { customerId: 'cust_1', provider: 'Bloc' as const, accountType: 'Permanent' as const, accountName: 'Jane', email: 'jane@example.com', firstName: 'Jane', lastName: 'Doe' };
+    const created = await service.createVirtualAccount(input);
+    expect(created.accountNumber).toBe('0123456789');
+    expect(api.post).toHaveBeenCalledWith('/virtual-accounts/create', expect.objectContaining({
+      provider: 'Bloc', type: 'individual', virtual_account_type: 'Permanent', account_name: 'Jane', customer_email: 'jane@example.com', first_name: 'Jane', last_name: 'Doe',
+    }));
+    expect((await service.getVirtualAccount('cust_1'))?.accountNumber).toBe('0123456789');
   });
 
-  describe('submitVirtualAccountOtp', () => {
-    it('should successfully submit OTP and activate pending account', async () => {
-      // 1. Setup pending OTP account
-      apiClient.post.mockResolvedValueOnce({
-        status: 'OTP_REQUIRED',
-      });
-      await service.createVirtualAccount({
-        customerId: 'cust_otp_submit',
-        fullName: 'OTP User',
-        email: 'otp@example.com',
-        bvn: '12345678901',
-      });
-
-      // 2. Submit OTP
-      apiClient.post.mockResolvedValueOnce({
-        success: true,
-        message: 'Action was Successful',
-      });
-
-      const otpResult = await service.submitVirtualAccountOtp({
-        customerId: 'cust_otp_submit',
-        otp: '123456',
-      });
-
-      expect(otpResult.status).toBe(CrayStatus.SUCCESSFUL);
-      expect(apiClient.post).toHaveBeenLastCalledWith(
-        '/api/virtual-accounts/generate-wallet',
-        {
-          otp: '123456',
-          customer_email: 'otp@example.com',
-        },
-      );
-    });
-
-    it('should throw NOT_FOUND if customer does not exist', async () => {
-      await expect(
-        service.submitVirtualAccountOtp({
-          customerId: 'non_existent_customer',
-          otp: '123456',
-        }),
-      ).rejects.toThrow(CrayException);
-    });
+  it('builds PalmPay permanent payload with KYC', async () => {
+    api.post.mockResolvedValue({ success: true, data: { account_number: '8700000001', account_name: 'Jane Doe', bank: 'PalmPay' } });
+    await service.createVirtualAccount({ customerId: 'cust_2', provider: 'palmpay', accountType: 'Permanent', accountName: 'Jane Doe', customerName: 'Jane Doe', email: 'jane@example.com', nin: '11111122221' });
+    expect(api.post).toHaveBeenCalledWith('/virtual-accounts/create', expect.objectContaining({ provider: 'palmpay', account_type: 'Permanent', customer_name: 'Jane Doe', nin: '11111122221' }));
   });
 
-  describe('getVirtualAccount', () => {
-    it('should return null if customer has no account', async () => {
-      const result = await service.getVirtualAccount('unknown_cust');
-      expect(result).toBeNull();
-    });
+  it('builds PalmPay one-time payload with return and expiry fields', async () => {
+    api.post.mockResolvedValue({ success: true, data: { account_number: '8700000000', account_name: 'Invoice', bank: 'PalmPay', expires_at_unix: 1789905229 } });
+    await service.createVirtualAccount({ customerId: 'cust_3', provider: 'palmpay', accountType: 'onetime', accountName: 'Invoice', email: 'payer@example.com', amount: '100.00', returnUrl: 'https://example.com/return', orderExpireSeconds: 1800 });
+    expect(api.post).toHaveBeenCalledWith('/virtual-accounts/create', expect.objectContaining({ account_type: 'onetime', amount: '100.00', return_url: 'https://example.com/return', order_expire_seconds: 1800 }));
+  });
 
-    it('should return account details if customer has an account', async () => {
-      apiClient.post.mockResolvedValueOnce({
-        data: {
-          accountNumber: '1122334455',
-          accountName: 'Retrieved User',
-          bankName: 'Access Bank',
-          bankCode: '044',
-        },
-      });
+  it('routes corporate account creation to the documented endpoint', async () => {
+    api.post.mockResolvedValue(response);
+    await service.createVirtualAccount({ customerId: 'corp_1', accountType: 'corporate', fullName: 'Jane Doe', bvn: '22192474887', rcNumber: '99988828822', phone: '08030000000', email: 'ops@acme.co', businessType: 'COMPANY', businessName: 'Acme Ltd' });
+    expect(api.post).toHaveBeenCalledWith('/corporate-accounts/create', expect.objectContaining({ full_name: 'Jane Doe', rc_number: '99988828822', business_type: 'COMPANY', business_name: 'Acme Ltd' }));
+  });
 
-      await service.createVirtualAccount({
-        customerId: 'cust_retrieve',
-        fullName: 'Retrieved User',
-        email: 'ret@example.com',
-        bvn: '12345678901',
-      });
+  it('rejects invalid provider-specific inputs', async () => {
+    await expect(service.createVirtualAccount({ customerId: 'x', provider: 'palmpay', accountType: 'Permanent', accountName: 'Jane', customerName: 'Jane', email: 'jane@example.com' })).rejects.toThrow(CrayException);
+  });
 
-      const details = await service.getVirtualAccount('cust_retrieve');
-      expect(details).toBeDefined();
-      expect(details?.accountNumber).toBe('1122334455');
-      expect(details?.bankName).toBe('Access Bank');
-      expect(details?.currency).toBe('NGN');
-    });
+  it('rejects incomplete provider success responses', async () => {
+    api.post.mockResolvedValue({ success: true, data: {} });
+    await expect(service.createVirtualAccount({ customerId: 'x', provider: 'Bloc', accountType: 'Permanent', accountName: 'Jane', email: 'jane@example.com' })).rejects.toThrow(CrayException);
   });
 });
-

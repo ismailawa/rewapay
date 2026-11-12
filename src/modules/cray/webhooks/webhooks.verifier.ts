@@ -9,7 +9,7 @@ export class WebhooksVerifier {
    * Verifies the HMAC-SHA256 signature for Cray collection webhooks.
    *
    * Formula per docs/cray-api-v2-docs.md § Webhook Security:
-   *   base64( HMAC-SHA256( JSON of "data" object, <webhookSecret> ) )
+   *   base64( HMAC-SHA256( JSON of "data" object, <webhook-scope-key> ) )
    *
    * @param data The "data" object from the webhook body
    * @param expectedHash The "hash" value from the webhook body
@@ -95,4 +95,3 @@ export class WebhooksVerifier {
     return isAllowed;
   }
 }
-

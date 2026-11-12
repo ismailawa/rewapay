@@ -1,143 +1,38 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { CrayModule } from './cray.module';
 import { CRAY_MODULE_OPTIONS, CRAY_SERVICE } from './config/cray.constants';
-import { CrayModuleOptions } from './config/cray.config';
 import { CrayService } from './cray.service';
-import { CrayCustomer } from './entities/cray-customer.entity';
-import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
-import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
-import { CrayTransfer } from './entities/cray-transfer.entity';
-import { CrayCheckout } from './entities/cray-checkout.entity';
-import { CrayWebhookEvent } from './entities/cray-webhook-event.entity';
-import { CrayIdempotencyRecord } from './entities/cray-idempotency.entity';
-import { CrayTransactionRecord } from './entities/cray-transaction.entity';
-import { CrayBalanceSnapshot } from './entities/cray-balance-snapshot.entity';
-import { CrayReconciliationRecord } from './entities/cray-reconciliation-record.entity';
+import { CrayApiClient } from './clients/cray-api.client';
+import { TEST_CRAY_OPTIONS } from './testing/test-options';
+import {
+  CrayCustomer, CrayVirtualAccount, CrayBeneficiary, CrayTransfer, CrayCheckout,
+  CrayWebhookEvent, CrayIdempotencyRecord, CrayTransactionRecord, CrayBalanceSnapshot,
+  CrayReconciliationRecord, CrayRefund,
+} from './entities';
 
 describe('CrayModule', () => {
-  const mockRepo = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    save: jest.fn(),
-    create: jest.fn(),
-  };
+  const entities = [CrayCustomer, CrayVirtualAccount, CrayBeneficiary, CrayTransfer, CrayCheckout, CrayWebhookEvent, CrayIdempotencyRecord, CrayTransactionRecord, CrayBalanceSnapshot, CrayReconciliationRecord, CrayRefund];
+  const repo = { find: jest.fn().mockResolvedValue([]), findOne: jest.fn().mockResolvedValue(null), save: jest.fn(async (value) => value), create: jest.fn((value) => value), insert: jest.fn() };
 
-  it('should compile synchronously with default config', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [CrayModule],
-    })
-      .overrideProvider(getRepositoryToken(CrayCustomer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayVirtualAccount))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBeneficiary))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransfer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayCheckout))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayWebhookEvent))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayIdempotencyRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransactionRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBalanceSnapshot))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayReconciliationRecord))
-      .useValue(mockRepo)
-      .compile();
+  async function compile(builder: TestingModuleBuilder) {
+    builder.overrideProvider(CrayApiClient).useValue({ get: jest.fn(), post: jest.fn() });
+    for (const entity of entities) builder.overrideProvider(getRepositoryToken(entity)).useValue(repo);
+    return builder.compile();
+  }
 
-    expect(module).toBeDefined();
-    const options = module.get<CrayModuleOptions>(CRAY_MODULE_OPTIONS);
-    expect(options).toBeDefined();
-    expect(options.environment).toBe('staging');
-    const service = module.get<CrayService>(CRAY_SERVICE);
-    expect(service).toBeDefined();
+  it('registers the secured v2 configuration and facade', async () => {
+    const module = await compile(Test.createTestingModule({ imports: [CrayModule.forRoot(TEST_CRAY_OPTIONS)] }));
+    expect(module.get(CRAY_SERVICE)).toBeInstanceOf(CrayService);
+    expect(module.get(CRAY_MODULE_OPTIONS)).toEqual(expect.objectContaining({
+      collectionApiKey: 'test_collection_key',
+      disbursementApiKey: 'test_disbursement_key',
+      dataEncryptionKey: TEST_CRAY_OPTIONS.dataEncryptionKey,
+    }));
   });
 
-  it('should compile with forRoot options', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        CrayModule.forRoot({
-          environment: 'production',
-          apiToken: 'test-token',
-        }),
-      ],
-    })
-      .overrideProvider(getRepositoryToken(CrayCustomer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayVirtualAccount))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBeneficiary))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransfer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayCheckout))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayWebhookEvent))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayIdempotencyRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransactionRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBalanceSnapshot))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayReconciliationRecord))
-      .useValue(mockRepo)
-      .compile();
-
-    expect(module).toBeDefined();
-    const options = module.get<CrayModuleOptions>(CRAY_MODULE_OPTIONS);
-    expect(options).toBeDefined();
-    expect(options.environment).toBe('production');
-    expect(options.apiToken).toBe('test-token');
-    const service = module.get<CrayService>(CRAY_SERVICE);
-    expect(service).toBeDefined();
-  });
-
-  it('should compile with forRootAsync using useFactory and inject', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        CrayModule.forRootAsync({
-          useFactory: () => ({
-            environment: 'staging',
-            apiToken: 'async-token-123',
-            requestSigningEnabled: true,
-          }),
-        }),
-      ],
-    })
-      .overrideProvider(getRepositoryToken(CrayCustomer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayVirtualAccount))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBeneficiary))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransfer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayCheckout))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayWebhookEvent))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayIdempotencyRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransactionRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBalanceSnapshot))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayReconciliationRecord))
-      .useValue(mockRepo)
-      .compile();
-
-    expect(module).toBeDefined();
-    const options = module.get<CrayModuleOptions>(CRAY_MODULE_OPTIONS);
-    expect(options).toBeDefined();
-    expect(options.environment).toBe('staging');
-    expect(options.apiToken).toBe('async-token-123');
-    expect(options.requestSigningEnabled).toBe(true);
-    const service = module.get<CrayService>(CRAY_SERVICE);
-    expect(service).toBeDefined();
+  it('supports async secured configuration', async () => {
+    const module = await compile(Test.createTestingModule({ imports: [CrayModule.forRootAsync({ useFactory: () => TEST_CRAY_OPTIONS })] }));
+    expect(module.get(CRAY_MODULE_OPTIONS).signingKeyId).toBe(TEST_CRAY_OPTIONS.signingKeyId);
   });
 });

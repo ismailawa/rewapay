@@ -24,8 +24,11 @@ export class CrayVirtualAccount {
   providerAccountId?: string;
 
   @Index()
-  @Column({ name: 'account_number', type: 'varchar', length: 32 })
+  @Column({ name: 'account_number_encrypted', type: 'text' })
   accountNumber: string;
+
+  @Column({ name: 'account_number_last4', type: 'varchar', length: 4 })
+  accountNumberLast4: string;
 
   @Column({ name: 'account_name', type: 'varchar', length: 255 })
   accountName: string;
@@ -59,4 +62,3 @@ export class CrayVirtualAccount {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-

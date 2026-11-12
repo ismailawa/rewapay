@@ -7,28 +7,6 @@ import { CrayErrorMapper } from './cray-error.mapper';
 import { CrayRateLimiter } from './cray-rate-limiter';
 import { CraySigner } from './cray-signer';
 
-/**
- * Endpoints that bypass X-Signature (Payment Initialization flow).
- * These use inline `public_key`/`secret_key` credentials instead.
- * Docs: https://docs.crayfi.com/v2/collections/payment-initialization
- */
-const UNSIGNED_PATHS = new Set([
-  '/payments/initialize',
-  '/payments/initialize/new',
-  '/payment/initialize',
-  '/payment/create',
-  '/payment/merchant/create',
-]);
-
-/** Returns true when the endpoint uses inline auth (no Bearer, no X-Signature). */
-function isUnsignedEndpoint(url: string): boolean {
-  const path = url.split('?')[0].replace(/\/+$/, '');
-  if (UNSIGNED_PATHS.has(path)) return true;
-  // GET /payment/merchant/verify/{ref}/{key} carries the secret key in the path
-  if (/^\/payment\/merchant\/verify\//.test(path)) return true;
-  return false;
-}
-
 @Injectable()
 export class CrayApiClient {
   private readonly logger = new Logger(CrayApiClient.name);
@@ -39,6 +17,7 @@ export class CrayApiClient {
     @Inject(CRAY_MODULE_OPTIONS)
     private readonly options: CrayModuleOptions,
   ) {
+    this.validateConfiguration();
     this.rateLimiter = new CrayRateLimiter(
       options.generalRpm,
       options.collectionPayoutRpm,
@@ -60,16 +39,6 @@ export class CrayApiClient {
 
   get rateLimiterInstance(): CrayRateLimiter {
     return this.rateLimiter;
-  }
-
-  /** Public key (`lrp_...`) for Payment Initialization request bodies. */
-  get publicKey(): string | undefined {
-    return this.options.publicKey;
-  }
-
-  /** Secret key (`lrs_...`) for the payment-verify URL path. */
-  get secretKey(): string | undefined {
-    return this.options.secretKey;
   }
 
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
@@ -127,30 +96,17 @@ export class CrayApiClient {
         pathWithQuery += (url.includes('?') ? '&' : '?') + query;
       }
     }
+    // Transmit the same normalized path/query bytes that are signed. This is
+    // especially important for literal '+' values, which must be sent as %2B.
+    pathWithQuery = CraySigner.canonicalizePath(pathWithQuery);
+    config.url = pathWithQuery;
+    delete config.params;
 
-    // 4. Determine whether this endpoint needs signing
-    const skipSigning = isUnsignedEndpoint(url);
-
-    // 4a. Build base headers — no Authorization on unsigned (payment-init) endpoints
+    // 4. Select the API key required by the endpoint's documented scope.
     const headers: Record<string, string> = {
       ...(config.headers as Record<string, string>),
+      Authorization: `Bearer ${this.resolveApiKey(url)}`,
     };
-
-    if (!skipSigning && this.options.apiToken) {
-      headers['Authorization'] = `Bearer ${this.options.apiToken}`;
-    }
-
-    // 4b. Attach X-Signature when:
-    //   - endpoint is not in the unsigned set, AND
-    //   - signing is enabled in config (requestSigningEnabled === true), AND
-    //   - a private key is configured
-    //
-    // Docs: signing is REQUIRED by default on every endpoint under the base URL.
-    // Set CRAY_REQUEST_SIGNING_ENABLED=true + CRAY_SIGNING_PRIVATE_KEY to enable.
-    const shouldSign =
-      !skipSigning &&
-      this.options.requestSigningEnabled &&
-      !!this.options.signingPrivateKey;
 
     // 5. Execute with per-attempt nonce (GET retries need a fresh nonce each time)
     const isGet = method === 'GET';
@@ -161,40 +117,29 @@ export class CrayApiClient {
       // Build fresh X-Signature for every attempt (nonce must be unique per request)
       const attemptHeaders = { ...headers };
 
-      if (shouldSign) {
-        const timestampMs = Date.now();
-        const nonce = randomUUID();
+      const timestampMs = Date.now();
+      const nonce = randomUUID();
 
-        const canonicalMessage = CraySigner.buildCanonicalMessage({
-          method,
-          pathWithQuery,
-          timestampMs,
-          nonce,
-          bodyBytes,
-        });
+      const canonicalMessage = CraySigner.buildCanonicalMessage({
+        method,
+        pathWithQuery,
+        timestampMs,
+        nonce,
+        bodyBytes,
+      });
 
-        const signature = CraySigner.sign(
-          canonicalMessage,
-          this.options.signingPrivateKey!,
-        );
+      const signature = CraySigner.sign(canonicalMessage, this.options.signingPrivateKey);
 
-        attemptHeaders['X-Signature'] = CraySigner.formatHeader({
-          timestampMs,
-          nonce,
-          signature,
-          keyId: this.options.signingKeyId,
-        });
+      attemptHeaders['X-Signature'] = CraySigner.formatHeader({
+        timestampMs,
+        nonce,
+        signature,
+        keyId: this.options.signingKeyId,
+      });
 
-        this.logger.debug(
-          `[Cray] Signed ${method} ${url} | kid=${this.options.signingKeyId ?? 'none'} | t=${timestampMs} | n=${nonce}`,
-        );
-      } else if (!skipSigning && this.options.requestSigningEnabled) {
-        // Signing is enabled in config but private key is missing — warn loudly
-        this.logger.warn(
-          `[Cray] requestSigningEnabled=true but no signingPrivateKey configured. ` +
-          `Request to ${method} ${url} will be sent without X-Signature and may be rejected with SIGNATURE_REQUIRED.`,
-        );
-      }
+      this.logger.debug(
+        `[Cray] Signed ${method} ${url} | kid=${this.options.signingKeyId} | t=${timestampMs} | n=${nonce}`,
+      );
 
       try {
         const response: AxiosResponse<T> = await this.axiosInstance.request<T>({
@@ -225,5 +170,27 @@ export class CrayApiClient {
 
     throw new Error('Unexpected retry loop termination');
   }
-}
 
+  private resolveApiKey(url: string): string {
+    return url.split('?')[0].startsWith('/payout')
+      ? this.options.disbursementApiKey
+      : this.options.collectionApiKey;
+  }
+
+  private validateConfiguration(): void {
+    const missing = [
+      ['collectionApiKey', this.options.collectionApiKey],
+      ['disbursementApiKey', this.options.disbursementApiKey],
+      ['signingPrivateKey', this.options.signingPrivateKey],
+      ['signingKeyId', this.options.signingKeyId],
+      ['webhookKeys', this.options.webhookKeys?.length ? 'configured' : ''],
+      ['dataEncryptionKey', this.options.dataEncryptionKey],
+    ]
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+
+    if (missing.length > 0) {
+      throw new Error(`Invalid Cray configuration: missing ${missing.join(', ')}`);
+    }
+  }
+}

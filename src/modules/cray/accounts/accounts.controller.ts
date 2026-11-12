@@ -7,22 +7,15 @@ import {
   Post,
 } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
-import { CreateVirtualAccountDto } from './dto/create-virtual-account.dto';
-import { SubmitVirtualAccountOtpDto } from './dto/submit-otp.dto';
-import { VirtualAccountDetails, VirtualAccountResult } from '../interfaces/cray.interfaces';
+import type { CreateVirtualAccountInput, VirtualAccountDetails, VirtualAccountResult } from '../interfaces/cray.interfaces';
 
 @Controller('cray/accounts/virtual')
 export class AccountsController {
   constructor(private readonly accountsService: AccountsService) {}
 
   @Post()
-  async createAccount(@Body() dto: CreateVirtualAccountDto): Promise<VirtualAccountResult> {
+  async createAccount(@Body() dto: CreateVirtualAccountInput): Promise<VirtualAccountResult> {
     return this.accountsService.createVirtualAccount(dto);
-  }
-
-  @Post('otp')
-  async submitOtp(@Body() dto: SubmitVirtualAccountOtpDto): Promise<{ status: string }> {
-    return this.accountsService.submitVirtualAccountOtp(dto);
   }
 
   @Get(':customerId')
@@ -34,4 +27,3 @@ export class AccountsController {
     return account;
   }
 }
-

@@ -40,16 +40,17 @@
     - [x] Safe GET retries on transient errors; zero blind retries on financial disbursements.
 
 - [x] **Task 3: Customer & Virtual Accounts Management**
-  - **Scope:** Create permanent NGN virtual accounts, Wema Bank OTP handling, and account retrieval.
-  - **Endpoints:** `POST /virtual-accounts/create`, `POST /api/virtual-accounts/generate-wallet`, `GET /virtual-accounts`.
+  - **Scope:** Create Bloc/PalmPay permanent and one-time NGN virtual accounts, corporate accounts, and retrieve persisted accounts.
+  - **Endpoints:** `POST /virtual-accounts/create`, `POST /corporate-accounts/create`, `GET /virtual-accounts`.
   - **Acceptance Criteria:**
     - [x] `POST /virtual-accounts/create` handles default provider `Bloc` and `PalmPay`.
-    - [x] Detects `status: 'OTP_REQUIRED'` and returns pending OTP state.
-    - [x] `submitVirtualAccountOtp` activates pending account via OTP submission.
+    - [x] Provider-discriminated payloads prevent Bloc, PalmPay, and corporate fields from being mixed.
+    - [x] Corporate accounts use `POST /corporate-accounts/create`.
+    - [x] The undocumented direct Wema OTP HTTP operation is not exposed by the facade.
     - [x] Duplicate creation prevented if active account already exists for customer.
     - [x] `getVirtualAccount` returns sanitized account details or null.
-    - [x] BVN/NIN/OTP masked in all logs and audits.
-    - [x] TypeORM entities `CrayCustomer` and `CrayVirtualAccount` persisted.
+    - [x] BVN/NIN are validated and masked in logs and audits.
+    - [x] Account numbers are encrypted at rest with a separate last-four display field.
 
 - [x] **Task 4: Bank Directory & Beneficiary Validation**
   - **Scope:** Fetch supported banks with caching, validate account names, and record beneficiaries.
@@ -60,7 +61,7 @@
     - [x] `POST /payout/accounts/validate` submits 10-digit account number and bank code (no countryCode for NG).
     - [x] Captures verified `account_name` and validation session ID `ref_id`.
     - [x] Persists `CrayBeneficiary` with `ref_id` required for disbursements.
-    - [x] REST controller endpoints `GET /cray/banks` and `POST /cray/banks/verify` operational.
+    - [x] Bank directory and validation are exposed through the authenticated in-process facade; operational controllers are not registered.
 
 - [x] **Task 5: Payouts / Transfers Initiation & Requery**
   - **Scope:** NGN payout disburse, status tracking, timeout safety, and failure recovery.
@@ -68,31 +69,30 @@
   - **Acceptance Criteria:**
     - [x] `POST /payout/disburse` sends `customer_reference`, `amount`, `account_number`, `bank_code`, `recipient_name`, `ref_id`, and `currency: "NGN"`.
     - [x] Idempotent reuse: repeated call with same reference returns original result without re-debiting.
-    - [x] Auto-resolves `ref_id` via account lookup if not pre-validated.
+    - [x] Always performs a fresh beneficiary validation immediately before disbursement and uses its `ref_id`.
     - [x] Critical timeout rule: ambiguous timeout preserves transaction in `PENDING` state; never marks failed or retries blindly.
     - [x] `getTransferStatus` requeries `GET /payout/requery/{transaction_id}` and maps `approved` -> `SUCCESSFUL`, `failed` -> `FAILED`.
-    - [x] TypeORM entity `CrayTransfer` persisted with `@Optional()` repo injection for unit-test isolation.
-    - [x] 65/65 unit tests passing across 14 suites, zero build errors.
+    - [x] TypeORM entity `CrayTransfer` persists the provider transaction ID separately from the merchant reference.
 
 - [x] **Task 6: Collections & Hosted Checkout**
   - **Scope:** Hosted checkout initialization, status query, and virtual account collection requery.
-  - **Endpoints:** `POST /checkout/initialize`, `GET /checkout/query/{reference}`, `GET /api/query/{customer_reference}`, `POST /charge`.
+  - **Endpoints:** `POST /checkout/initialize`, `GET /checkout/query/{reference}`, `GET /query/{customer_reference}`.
   - **Acceptance Criteria:**
     - [x] Hosted checkout initializes session and returns payment link `data.link`.
     - [x] Checkout verification queries authoritative status via `GET /checkout/query/{reference}`.
-    - [x] Virtual account funding verified via `GET /api/query/{customer_reference}`.
-    - [x] Direct card charge gated and protected.
+    - [x] Virtual account funding verified via `GET /query/{customer_reference}`.
+    - [x] Hosted checkout supports card, transfer, and mobile money without synthesizing customer PII.
     - [x] 100% unit tests passing.
 
 - [x] **Task 7: Webhook Processing & Cryptographic Verification**
   - **Scope:** Receive webhooks, verify signatures, persist events, and emit internal domain events.
   - **Endpoints:** `POST /cray/webhooks`.
   - **Acceptance Criteria:**
-    - [x] Raw request body captured for signature verification.
-    - [x] Collection events verified using Base64 HMAC-SHA256 (`hash` over `JSON_string(data)`).
-    - [x] Payin/payout events verified via IP allowlist + server-side transaction requery.
+    - [x] Every event verified using Base64 HMAC-SHA256 (`hash` over `JSON_string(data)`).
+    - [x] Rotating webhook-scope keys selected through the `Cray-Webhook-Key` hint.
+    - [x] Payin/payout events additionally verified through server-side transaction requery.
     - [x] Emits domain events (`funding.confirmed`, `transfer.completed`, etc.) via `EventEmitter2`.
-    - [x] Persists events in `cray_webhook_events` with replay capability.
+    - [x] Persists redacted events in `cray_webhook_events` with exact-delivery fingerprinting.
     - [x] 100% unit tests passing.
 
 - [x] **Task 8: Idempotency & Database Persistence Layer**
@@ -113,9 +113,22 @@
     - [x] 100% unit tests passing.
 
 - [x] **Task 10: Unified Wallet Service Facade (`ICrayService`) & Acceptance Suite**
-  - **Scope:** In-process facade service implementing `ICrayService` and end-to-end sandbox verification.
+  - **Scope:** In-process facade service implementing `ICrayService` and mock/database-backed verification.
   - **Acceptance Criteria:**
     - [x] `CrayService` exports clean in-process API matching Interface Contract v0.1.
-    - [x] End-to-end integration test suite simulating full payment lifecycles.
+    - [x] Acceptance tests simulate payment lifecycles and E2E tests construct real TypeORM repositories.
     - [x] Documentation and module export verification for RewaPay backend.
 
+- [x] **Task 11: Cray v2 Contract & Security Remediation**
+  - [x] Separate collection/disbursement keys and route them by documented scope.
+  - [x] Require ES256 signing and correct literal-plus query canonicalization.
+  - [x] Use provider-specific Bloc, PalmPay, one-time, and corporate account payloads.
+  - [x] Require real checkout customer details and support card, transfer, and mobile money.
+  - [x] Implement full/partial refund initiation and refund status query.
+  - [x] Obtain a fresh payout `ref_id` and requery only with Cray's transaction ID.
+  - [x] Quarantine ambiguous idempotency records instead of replaying them.
+  - [x] Verify every webhook HMAC, support key rotation, and fingerprint exact deliveries.
+  - [x] Encrypt account numbers and persist only redacted webhook payloads.
+  - [x] Run scheduled reconciliation/balance snapshots and provide a security backfill migration.
+  - [x] Pass unit, build, and database-backed E2E verification.
+  - [ ] Run the opt-in live sandbox contract suite with externally supplied scoped credentials and registered signing/webhook keys.

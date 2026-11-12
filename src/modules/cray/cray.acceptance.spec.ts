@@ -1,279 +1,83 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as crypto from 'crypto';
-import { CrayModule } from './cray.module';
 import { CrayService } from './cray.service';
+import { AccountsService } from './accounts/accounts.service';
+import { BanksService } from './banks/banks.service';
+import { TransfersService } from './transfers/transfers.service';
+import { CheckoutService } from './checkout/checkout.service';
+import { ReconciliationService } from './reconciliation/reconciliation.service';
+import { IdempotencyService } from './idempotency/idempotency.service';
+import { RefundsService } from './refunds/refunds.service';
 import { WebhooksService } from './webhooks/webhooks.service';
+import { WebhooksVerifier } from './webhooks/webhooks.verifier';
 import { CrayApiClient } from './clients/cray-api.client';
+import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
+import { TEST_CRAY_OPTIONS } from './testing/test-options';
 import { CrayStatus } from './enums/cray.enums';
-import { CRAY_SERVICE } from './config/cray.constants';
-import { ICrayService } from './interfaces/cray.interfaces';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { CrayCustomer } from './entities/cray-customer.entity';
-import { CrayVirtualAccount } from './entities/cray-virtual-account.entity';
-import { CrayBeneficiary } from './entities/cray-beneficiary.entity';
-import { CrayTransfer } from './entities/cray-transfer.entity';
-import { CrayCheckout } from './entities/cray-checkout.entity';
-import { CrayWebhookEvent } from './entities/cray-webhook-event.entity';
-import { CrayIdempotencyRecord } from './entities/cray-idempotency.entity';
-import { CrayTransactionRecord } from './entities/cray-transaction.entity';
-import { CrayBalanceSnapshot } from './entities/cray-balance-snapshot.entity';
-import { CrayReconciliationRecord } from './entities/cray-reconciliation-record.entity';
 
-describe('CrayModule End-to-End Acceptance Suite', () => {
-  let moduleRef: TestingModule;
-  let crayService: ICrayService;
-  let webhooksService: WebhooksService;
-  let apiClient: jest.Mocked<CrayApiClient>;
-  let eventEmitter: EventEmitter2;
+describe('Cray v2 in-process acceptance', () => {
+  let facade: CrayService;
+  let webhooks: WebhooksService;
+  let api: jest.Mocked<CrayApiClient>;
+  let emitter: EventEmitter2;
+  const webhookKey = TEST_CRAY_OPTIONS.webhookKeys[0];
+  const sign = (data: Record<string, unknown>) => crypto.createHmac('sha256', webhookKey).update(JSON.stringify(data)).digest('base64');
 
-  const webhookSecret = 'acceptance_webhook_secret_key_1234';
-
-  function computeHmac(data: Record<string, unknown>): string {
-    return crypto
-      .createHmac('sha256', webhookSecret)
-      .update(JSON.stringify(data))
-      .digest('base64');
-  }
-
-  const mockRepo = {
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn().mockResolvedValue(null),
-    save: jest.fn((e) => Promise.resolve({ id: 'uuid-1', ...e })),
-    create: jest.fn((e) => e),
-  };
-
-  beforeAll(async () => {
-    const mockApiClient = {
-      get: jest.fn(),
-      post: jest.fn(),
-    };
-
-    moduleRef = await Test.createTestingModule({
-      imports: [
-        CrayModule.forRoot({
-          environment: 'test',
-          apiToken: 'acceptance_token',
-          webhookSecret,
-          webhookAllowedIps: ['127.0.0.1'],
-        }),
-      ],
-    })
-      .overrideProvider(CrayApiClient)
-      .useValue(mockApiClient)
-      .overrideProvider(getRepositoryToken(CrayCustomer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayVirtualAccount))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBeneficiary))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransfer))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayCheckout))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayWebhookEvent))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayIdempotencyRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayTransactionRecord))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayBalanceSnapshot))
-      .useValue(mockRepo)
-      .overrideProvider(getRepositoryToken(CrayReconciliationRecord))
-      .useValue(mockRepo)
-      .compile();
-
-    crayService = moduleRef.get<ICrayService>(CRAY_SERVICE);
-    webhooksService = moduleRef.get<WebhooksService>(WebhooksService);
-    apiClient = moduleRef.get(CrayApiClient);
-    eventEmitter = moduleRef.get<EventEmitter2>(EventEmitter2);
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({ providers: [
+      CrayService, AccountsService, BanksService, TransfersService, CheckoutService,
+      ReconciliationService, IdempotencyService, RefundsService, WebhooksService, WebhooksVerifier,
+      EventEmitter2,
+      { provide: CRAY_MODULE_OPTIONS, useValue: TEST_CRAY_OPTIONS },
+      { provide: CrayApiClient, useValue: { get: jest.fn(), post: jest.fn() } },
+    ] }).compile();
+    facade = module.get(CrayService);
+    webhooks = module.get(WebhooksService);
+    api = module.get(CrayApiClient);
+    emitter = module.get(EventEmitter2);
   });
 
-  // =====================================================================
-  // 1. Virtual Account Provisioning Lifecycle
-  // =====================================================================
+  it('provisions a Bloc account and hosted transfer checkout', async () => {
+    api.post
+      .mockResolvedValueOnce({ success: true, data: { account_number: '0123456789', account_name: 'ACME-Jane', bank: 'Bloc MFB', sort_code: '51411' } })
+      .mockResolvedValueOnce({ status: true, data: { link: 'https://checkout.example/PAY1', payCode: 'PAY1' } });
 
-  it('Scenario 1: Creates virtual account, persists customer, and queries account details', async () => {
-    apiClient.post.mockResolvedValueOnce({
-      status: true,
-      message: 'Account created successfully',
-      data: {
-        account_number: '0123456789',
-        account_name: 'RewaPay User 01',
-        bank_name: 'Wema Bank',
-        bank_code: '035',
-        status: 'ACTIVE',
-      },
-    });
-
-    const vaResult = await crayService.createVirtualAccount({
-      customerId: 'cust_e2e_001',
-      fullName: 'RewaPay User 01',
-      email: 'user01@rewapay.io',
-      bvn: '22222222222',
-    });
-
-    expect(vaResult.accountNumber).toBe('0123456789');
-    expect(vaResult.bankName).toBe('Wema Bank');
-    expect(vaResult.status).toBe(CrayStatus.SUCCESSFUL);
+    const account = await facade.createVirtualAccount({ customerId: 'c1', provider: 'Bloc', accountType: 'Permanent', accountName: 'Jane', email: 'jane@example.com' });
+    const checkout = await facade.createFundingSession({ customerId: 'c1', walletId: 'w1', amount: '100.00', reference: 'fund1', method: 'transfer', customer: { name: 'Jane Doe', email: 'jane@example.com' } });
+    expect(account.accountNumber).toBe('0123456789');
+    expect(checkout.paymentUrl).toBe('https://checkout.example/PAY1');
   });
 
-  // =====================================================================
-  // 2. Hosted Checkout & Funding Lifecycle with Signed Webhook Delivery
-  // =====================================================================
+  it('validates immediately before payout and completes from a signed webhook', async () => {
+    api.post
+      .mockResolvedValueOnce({ success: true, data: { account_name: 'Jane Doe', ref_id: 'sess_fresh' } })
+      .mockResolvedValueOnce({ success: true, data: { reference: 'CRAY_PAYOUT_1', status: 'pending' } });
+    const initiated = await facade.initiateTransfer({ walletId: 'w1', amount: '50.00', reference: 'merchant_payout_1', destination: { accountNumber: '0123456789', bankCode: '000013', accountName: 'Jane Doe' } });
+    expect(initiated).toEqual({ transferId: 'CRAY_PAYOUT_1', status: CrayStatus.PENDING });
+    expect(api.post).toHaveBeenNthCalledWith(1, '/payout/accounts/validate', { account_number: '0123456789', bank_code: '000013' });
 
-  it('Scenario 2: Initializes hosted checkout, receives signed collection webhook, and confirms funding', async () => {
-    // 1. Initialize hosted checkout session
-    apiClient.post.mockResolvedValueOnce({
-      status: true,
-      message: 'Link generated successfully',
-      data: {
-        link: 'https://checkout.crayfi.com/pay/SES_98765',
-        reference: 'funding_e2e_ref_001',
-        payCode: 'SES_98765',
-      },
-    });
-
-    const fundingSession = await crayService.createFundingSession({
-      customerId: 'cust_e2e_002',
-      walletId: 'wal_e2e_002',
-      amount: '15000.00',
-      reference: 'funding_e2e_ref_001',
-      method: 'transfer',
-    });
-
-    expect(fundingSession.paymentUrl).toBe('https://checkout.crayfi.com/pay/SES_98765');
-    expect(fundingSession.sessionId).toBe('SES_98765');
-
-    // 2. Customer pays on checkout page -> Cray sends signed collection webhook
-    let emittedFundingEvent: any = null;
-    eventEmitter.on('funding.confirmed', (evt) => {
-      emittedFundingEvent = evt;
-    });
-
-    const webhookData = {
-      customer_reference: 'funding_e2e_ref_001',
-      transaction_reference: 'CRAY_TXN_COLLECT_01',
-      amount: '15000.00',
-      status: 'Successful',
-    };
-
-    const hash = computeHmac(webhookData);
-
-    const webhookResult = await webhooksService.processWebhook({
-      event: 'collection.mobile_money.successful',
-      data: webhookData,
-      hash,
-    });
-
-    expect(webhookResult.received).toBe(true);
-    expect(webhookResult.status).toBe('PROCESSED');
-    expect(emittedFundingEvent).not.toBeNull();
-    expect(emittedFundingEvent.reference).toBe('funding_e2e_ref_001');
-    expect(emittedFundingEvent.amount).toBe('15000.00');
+    api.get.mockResolvedValueOnce({ data: { status: 'approved' } });
+    const listener = jest.fn();
+    emitter.on('transfer.completed', listener);
+    const data = { customer_reference: 'merchant_payout_1', reference: 'CRAY_PAYOUT_1', amount: '50.00', currency: 'NGN', status: 'Successful' };
+    await webhooks.processWebhook({ event: 'payout', data, hash: sign(data) }, { keyHint: webhookKey.slice(-4) });
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ reference: 'merchant_payout_1', transferId: 'CRAY_PAYOUT_1' }));
   });
 
-  // =====================================================================
-  // 3. Payout Lifecycle with Authoritative Requery & Webhook
-  // =====================================================================
-
-  it('Scenario 3: Validates beneficiary bank, initiates payout, and completes via webhook', async () => {
-    // 1. Validate destination bank account
-    apiClient.post.mockResolvedValueOnce({
-      status: true,
-      message: 'Account validated',
-      data: {
-        account_name: 'Recipient John Doe',
-        ref_id: 'val_session_e2e_777',
-      },
-    });
-
-    const bankValidation = await crayService.validateBankAccount({
-      accountNumber: '9876543210',
-      bankCode: '058',
-    });
-
-    expect(bankValidation.accountName).toBe('Recipient John Doe');
-    expect(bankValidation.refId).toBe('val_session_e2e_777');
-
-    // 2. Initiate payout disburse
-    apiClient.post.mockResolvedValueOnce({
-      status: true,
-      message: 'Payout initiated',
-      data: {
-        status: 'pending',
-        transaction_id: 'CRAY_PAYOUT_TXN_888',
-        reference: 'payout_e2e_ref_001',
-      },
-    });
-
-    const transferResult = await crayService.initiateTransfer({
-      walletId: 'wal_e2e_payout',
-      amount: '50000.00',
-      reference: 'payout_e2e_ref_001',
-      destination: {
-        accountNumber: '9876543210',
-        bankCode: '058',
-        accountName: 'Recipient John Doe',
-      },
-    });
-
-    expect(transferResult.status).toBe(CrayStatus.PENDING);
-
-    // 3. Cray payout webhook arrives -> verified via authoritative requery
-    let emittedTransferEvent: any = null;
-    eventEmitter.on('transfer.completed', (evt) => {
-      emittedTransferEvent = evt;
-    });
-
-    apiClient.get.mockResolvedValueOnce({
-      status: true,
-      data: {
-        status: 'approved',
-        reference: 'payout_e2e_ref_001',
-      },
-    });
-
-    const payoutWebhook = await webhooksService.processWebhook(
-      {
-        event: 'payout',
-        data: {
-          reference: 'payout_e2e_ref_001',
-          amount: '50000.00',
-          status: 'Successful',
-        },
-      },
-      { clientIp: '127.0.0.1' },
-    );
-
-    expect(payoutWebhook.received).toBe(true);
-    expect(emittedTransferEvent).not.toBeNull();
-    expect(emittedTransferEvent.reference).toBe('payout_e2e_ref_001');
-    expect(emittedTransferEvent.amount).toBe('50000.00');
+  it('initiates a partial refund and queries its terminal status', async () => {
+    api.post.mockResolvedValueOnce({ data: { reference: 'REFUND_1', status: 'pending', amount: '5.00' } });
+    api.get.mockResolvedValueOnce({ data: { reference: 'REFUND_1', status: 'completed', amount: '5.00' } });
+    expect((await facade.initiateRefund({ reference: 'PAYMENT_1', amount: '5.00' })).refundId).toBe('REFUND_1');
+    expect((await facade.getRefundStatus('REFUND_1')).status).toBe(CrayStatus.SUCCESSFUL);
   });
 
-  // =====================================================================
-  // 4. Platform Balance Verification
-  // =====================================================================
-
-  it('Scenario 4: Fetches and verifies platform balance', async () => {
-    apiClient.get.mockResolvedValueOnce({
-      status: true,
-      message: 'Account balance retrieved successfully',
-      data: [
-        {
-          id: 'wallet_ngn_01',
-          currency: 'NGN',
-          available_balance: 250000,
-          actual_balance: 260000,
-        },
-      ],
+  it('initiates a full refund without inventing an amount', async () => {
+    api.post.mockResolvedValueOnce({ data: { reference: 'REFUND_FULL_1', status: 'pending' } });
+    await expect(facade.initiateRefund({ reference: 'PAYMENT_FULL_1' })).resolves.toEqual({
+      refundId: 'REFUND_FULL_1',
+      status: CrayStatus.PENDING,
     });
-
-    const balance = await crayService.getPlatformBalance('NGN');
-    expect(balance.currency).toBe('NGN');
-    expect(balance.available).toBe('250000.00');
-    expect(balance.ledger).toBe('260000.00');
+    expect(api.post).toHaveBeenCalledWith('/refund/initiate', { reference: 'PAYMENT_FULL_1' });
   });
 });
-

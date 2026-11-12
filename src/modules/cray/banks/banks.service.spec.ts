@@ -3,6 +3,8 @@ import { BanksService } from './banks.service';
 import { CrayApiClient } from '../clients/cray-api.client';
 import { CrayErrorCode } from '../enums/cray.enums';
 import { CrayException } from '../interfaces/cray.interfaces';
+import { CRAY_MODULE_OPTIONS } from '../config/cray.constants';
+import { TEST_CRAY_OPTIONS } from '../testing/test-options';
 
 describe('BanksService', () => {
   let service: BanksService;
@@ -17,6 +19,7 @@ describe('BanksService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BanksService,
+        { provide: CRAY_MODULE_OPTIONS, useValue: TEST_CRAY_OPTIONS },
         {
           provide: CrayApiClient,
           useValue: mockApiClient,
@@ -149,4 +152,3 @@ describe('BanksService', () => {
     });
   });
 });
-

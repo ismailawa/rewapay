@@ -1,21 +1,24 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CrayApiClient } from '../clients/cray-api.client';
-import { CrayErrorCode, CrayStatus, CustomerType, VirtualAccountType } from '../enums/cray.enums';
+import { CrayErrorCode, CrayStatus } from '../enums/cray.enums';
 import {
   CreateVirtualAccountInput,
   CrayException,
-  SubmitVirtualAccountOtpInput,
-  SubmitVirtualAccountOtpResult,
   VirtualAccountDetails,
   VirtualAccountResult,
 } from '../interfaces/cray.interfaces';
 import { CrayCustomer } from '../entities/cray-customer.entity';
 import { CrayVirtualAccount } from '../entities/cray-virtual-account.entity';
+import { MoneyUtil } from '../utils/money.util';
 import { ReferenceUtil } from '../utils/reference.util';
+import { FieldEncryptionUtil } from '../utils/field-encryption.util';
+import { CRAY_MODULE_OPTIONS } from '../config/cray.constants';
+import type { CrayModuleOptions } from '../config/cray.config';
 
 interface CrayVAResponseItem {
+  id?: string;
   bankCode?: string;
   bank_code?: string;
   bankName?: string;
@@ -27,327 +30,205 @@ interface CrayVAResponseItem {
   accountName?: string;
   account_name?: string;
   status?: string;
+  expires_at?: string;
+  expires_at_unix?: number;
 }
 
 interface CrayCreateVAResponse {
   status?: boolean | string;
   success?: boolean;
   message?: string;
-  data?: CrayVAResponseItem | CrayVAResponseItem[] | { accounts?: CrayVAResponseItem[]; status?: string };
+  data?: CrayVAResponseItem;
 }
 
 @Injectable()
 export class AccountsService {
   private readonly logger = new Logger(AccountsService.name);
-
-  // In-memory fallback stores when TypeORM repository is not injected (e.g. testing)
   private readonly memoryCustomers = new Map<string, CrayCustomer>();
   private readonly memoryVirtualAccounts = new Map<string, CrayVirtualAccount>();
 
   constructor(
     private readonly apiClient: CrayApiClient,
-    @Optional()
-    @InjectRepository(CrayCustomer)
+    @Inject(CRAY_MODULE_OPTIONS) private readonly options: CrayModuleOptions,
+    @Optional() @InjectRepository(CrayCustomer)
     private readonly customerRepo?: Repository<CrayCustomer>,
-    @Optional()
-    @InjectRepository(CrayVirtualAccount)
+    @Optional() @InjectRepository(CrayVirtualAccount)
     private readonly accountRepo?: Repository<CrayVirtualAccount>,
   ) {}
 
-  /**
-   * Creates or retrieves a permanent NGN virtual account for a customer
-   */
-  async createVirtualAccount(
-    input: CreateVirtualAccountInput,
-  ): Promise<VirtualAccountResult> {
-    if (!input.customerId || !input.fullName || !input.email || !input.bvn) {
-      throw new CrayException({
-        code: CrayErrorCode.INVALID_INPUT,
-        message: 'customerId, fullName, email, and bvn are required fields',
-        retryable: false,
-      });
-    }
+  async createVirtualAccount(input: CreateVirtualAccountInput): Promise<VirtualAccountResult> {
+    this.validateInput(input);
 
-    // 1. Prevent duplicate creation if an active account already exists
     const existing = await this.findActiveAccount(input.customerId);
-    if (existing && (existing.status === CrayStatus.SUCCESSFUL || existing.status === 'ACTIVE')) {
-      this.logger.log(`Active virtual account already exists for customer ${input.customerId}`);
-      return {
-        accountNumber: existing.accountNumber,
-        accountName: existing.accountName,
-        bankName: existing.bankName,
-        bankCode: existing.bankCode,
-        status: CrayStatus.SUCCESSFUL,
-      };
+    if (existing && input.accountType !== 'onetime') {
+      return this.toResult(existing);
     }
 
-    // 2. Ensure customer record exists
     await this.upsertCustomer(input.customerId, input.email);
-
-    // 3. Prepare provider request
     const reference = ReferenceUtil.generate('va');
-    const payload = {
-      currency: 'NGN',
-      account_name: input.fullName,
-      customer_email: input.email,
-      virtual_account_type: input.accountType || VirtualAccountType.PERMANENT,
-      type: input.customerType || CustomerType.INDIVIDUAL,
-      bvn: input.bvn,
-      ...(input.nin ? { nin: input.nin } : {}),
-      ...(input.rcNumber ? { rc_number: input.rcNumber } : {}),
-      reference,
-    };
+    const endpoint = input.accountType === 'corporate'
+      ? '/corporate-accounts/create'
+      : '/virtual-accounts/create';
+    const payload = this.buildPayload(input, reference);
 
-    // Sensitive data: mask BVN/NIN in audit log
     this.logger.log(
-      `Requesting virtual account for customer: ${input.customerId}, ref: ${reference}, bvn: ***${input.bvn.slice(-4)}`,
+      `Requesting ${input.accountType} virtual account for customer ${input.customerId}, ref=${reference}`,
     );
+    const response = await this.apiClient.post<CrayCreateVAResponse>(endpoint, payload);
+    const item = response?.data;
+    const accountNumber = item?.account_number || item?.accountNumber || '';
+    const accountName = item?.account_name || item?.accountName || '';
+    const bankName = item?.bank || item?.bank_name || item?.bankName || '';
+    const bankCode = item?.sort_code || item?.bank_code || item?.bankCode;
 
-    const response = await this.apiClient.post<CrayCreateVAResponse>(
-      '/virtual-accounts/create',
-      payload,
-    );
-
-    // 4. Handle OTP_REQUIRED response
-    const isOtpRequired =
-      (typeof response?.status === 'string' && response.status.toUpperCase() === 'OTP_REQUIRED') ||
-      (typeof response?.message === 'string' && response.message.toLowerCase().includes('otp')) ||
-      (typeof response?.data === 'object' && response.data !== null && 'status' in response.data && (response.data as { status?: string }).status === 'OTP_REQUIRED');
-
-    if (isOtpRequired) {
-      this.logger.log(`OTP required for customer ${input.customerId} virtual account creation`);
-      await this.saveVirtualAccount({
-        customerId: input.customerId,
-        accountNumber: 'PENDING_OTP',
-        accountName: input.fullName,
-        bankName: 'Wema Bank',
-        bankCode: '035',
-        currency: 'NGN',
-        virtualAccountType: input.accountType || VirtualAccountType.PERMANENT,
-        status: 'OTP_REQUIRED',
-        reference,
-        providerResponseSanitized: { message: response?.message || 'OTP_REQUIRED' },
+    if (!accountNumber || !accountName || !bankName) {
+      throw new CrayException({
+        code: CrayErrorCode.PROVIDER_ERROR,
+        message: 'Cray returned an incomplete virtual-account response.',
+        retryable: false,
+        details: { success: response?.success, status: response?.status, message: response?.message },
       });
-
-      return {
-        accountNumber: '',
-        accountName: input.fullName,
-        bankName: 'Wema Bank',
-        bankCode: '035',
-        status: 'OTP_REQUIRED',
-      };
     }
-
-    // 5. Extract account details from provider response
-    const accountItem = this.extractAccountItem(response);
-    const accountNumber = accountItem?.accountNumber || accountItem?.account_number || '';
-    const accountName = accountItem?.accountName || accountItem?.account_name || input.fullName;
-    const bankName = accountItem?.bankName || accountItem?.bank_name || accountItem?.bank || 'Bloc MFB';
-    const bankCode = accountItem?.bankCode || accountItem?.bank_code || accountItem?.sort_code;
 
     const saved = await this.saveVirtualAccount({
       customerId: input.customerId,
-      accountNumber,
+      providerAccountId: item?.id,
+      accountNumber: FieldEncryptionUtil.encrypt(accountNumber, this.options.dataEncryptionKey),
+      accountNumberLast4: accountNumber.slice(-4),
       accountName,
       bankName,
       bankCode,
       currency: 'NGN',
-      virtualAccountType: input.accountType || VirtualAccountType.PERMANENT,
+      virtualAccountType: input.accountType,
       status: CrayStatus.SUCCESSFUL,
       reference,
       providerResponseSanitized: {
-        accountNumber: accountNumber ? `***${accountNumber.slice(-4)}` : undefined,
+        accountNumber: `***${accountNumber.slice(-4)}`,
         accountName,
         bankName,
+        expiresAt: item?.expires_at,
+        expiresAtUnix: item?.expires_at_unix,
       },
     });
 
-    return {
-      accountNumber: saved.accountNumber,
-      accountName: saved.accountName,
-      bankName: saved.bankName,
-      bankCode: saved.bankCode,
-      status: CrayStatus.SUCCESSFUL,
-    };
+    return this.toResult(saved);
   }
 
-  /**
-   * Submits OTP for Wema Bank virtual account provisioning
-   */
-  async submitVirtualAccountOtp(
-    input: SubmitVirtualAccountOtpInput,
-  ): Promise<SubmitVirtualAccountOtpResult> {
-    if (!input.customerId || !input.otp) {
-      throw new CrayException({
-        code: CrayErrorCode.INVALID_INPUT,
-        message: 'customerId and otp are required',
-        retryable: false,
-      });
-    }
-
-    const customer = await this.findCustomer(input.customerId);
-    if (!customer) {
-      throw new CrayException({
-        code: CrayErrorCode.NOT_FOUND,
-        message: `Customer ${input.customerId} not found`,
-        retryable: false,
-      });
-    }
-
-    // Sensitive data: never log OTP
-    this.logger.log(`Submitting virtual account OTP for customer ${input.customerId}`);
-
-    const response = await this.apiClient.post<{ success?: boolean; message?: string }>(
-      '/api/virtual-accounts/generate-wallet',
-      {
-        otp: input.otp,
-        customer_email: customer.email,
-      },
-    );
-
-    // Update pending virtual account to ACTIVE/SUCCESSFUL
-    const pendingAccount = await this.findPendingAccount(input.customerId);
-    if (pendingAccount) {
-      pendingAccount.status = CrayStatus.SUCCESSFUL;
-      await this.persistVirtualAccount(pendingAccount);
-    }
-
-    return {
-      status: CrayStatus.SUCCESSFUL,
-    };
-  }
-
-  /**
-   * Retrieves active virtual account details for a customer
-   */
   async getVirtualAccount(customerId: string): Promise<VirtualAccountDetails | null> {
-    if (!customerId) {
-      return null;
-    }
-
-    const account = await this.findActiveAccount(customerId);
-    if (!account) {
-      return null;
-    }
-
+    const account = customerId ? await this.findActiveAccount(customerId) : null;
+    if (!account) return null;
     return {
       customerId: account.customerId,
-      accountNumber: account.accountNumber,
+      accountNumber: FieldEncryptionUtil.decrypt(account.accountNumber, this.options.dataEncryptionKey),
       accountName: account.accountName,
       bankName: account.bankName,
       bankCode: account.bankCode,
       currency: account.currency,
-      status: (account.status as CrayStatus) || CrayStatus.SUCCESSFUL,
-      createdAt: account.createdAt ? account.createdAt.toISOString() : new Date().toISOString(),
+      status: account.status as CrayStatus,
+      createdAt: account.createdAt?.toISOString() || new Date().toISOString(),
     };
   }
 
-  // -------------------------------------------------------------
-  // Helper & Persistence methods
-  // -------------------------------------------------------------
-
-  private extractAccountItem(response: CrayCreateVAResponse): CrayVAResponseItem | undefined {
-    if (!response) return undefined;
-    if (Array.isArray(response.data)) {
-      return response.data[0];
-    }
-    if (response.data && typeof response.data === 'object') {
-      if ('accounts' in response.data && Array.isArray(response.data.accounts)) {
-        return response.data.accounts[0];
+  private validateInput(input: CreateVirtualAccountInput): void {
+    if (!input.customerId || !input.email) this.invalid('customerId and email are required');
+    if (input.accountType === 'corporate') {
+      if (!/^\d{11}$/.test(input.bvn) || !input.rcNumber || !input.phone || !input.fullName) {
+        this.invalid('Corporate accounts require fullName, 11-digit BVN, rcNumber, and phone');
       }
-      return response.data as CrayVAResponseItem;
+      return;
     }
-    return undefined;
+    if (!input.accountName) this.invalid('accountName is required');
+    if (input.provider === 'palmpay' && input.accountType === 'Permanent') {
+      if (!input.customerName || (!input.bvn && !input.nin)) {
+        this.invalid('PalmPay permanent accounts require customerName and either BVN or NIN');
+      }
+      if (input.bvn && !/^\d{11}$/.test(input.bvn)) this.invalid('BVN must be 11 digits');
+      if (input.nin && !/^\d{11}$/.test(input.nin)) this.invalid('NIN must be 11 digits');
+    }
+    if (input.accountType === 'onetime') {
+      if (!MoneyUtil.isValidAmountString(input.amount)) this.invalid('One-time amount must be a positive 2-decimal string');
+      if (input.provider === 'palmpay' && !input.returnUrl) this.invalid('PalmPay one-time accounts require returnUrl');
+      if (input.orderExpireSeconds !== undefined && (input.orderExpireSeconds < 1800 || input.orderExpireSeconds > 86400)) {
+        this.invalid('orderExpireSeconds must be between 1800 and 86400');
+      }
+    }
   }
 
-  private async upsertCustomer(customerId: string, email: string): Promise<CrayCustomer> {
-    const existing = await this.findCustomer(customerId);
-    if (existing) {
-      return existing;
+  private buildPayload(input: CreateVirtualAccountInput, reference: string): Record<string, unknown> {
+    if (input.accountType === 'corporate') {
+      return {
+        full_name: input.fullName,
+        bvn: input.bvn,
+        rc_number: input.rcNumber,
+        phone: input.phone,
+        customer_email: input.email,
+        business_type: input.businessType,
+        ...(input.businessName ? { business_name: input.businessName } : {}),
+        ...(input.tin ? { tin: input.tin } : {}),
+      };
     }
-
-    const customer: Partial<CrayCustomer> = {
-      customerId,
-      email,
-      status: 'ACTIVE',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    if (input.accountType === 'onetime') {
+      return {
+        provider: input.provider,
+        account_type: 'onetime',
+        currency: 'NGN',
+        amount: input.amount,
+        account_name: input.accountName,
+        customer_email: input.email,
+        reference,
+        ...(input.returnUrl ? { return_url: input.returnUrl } : {}),
+        ...(input.orderExpireSeconds ? { order_expire_seconds: input.orderExpireSeconds } : {}),
+      };
+    }
+    if (input.provider === 'palmpay') {
+      return {
+        provider: 'palmpay', currency: 'NGN', account_type: 'Permanent', type: 'individual',
+        reference, account_name: input.accountName, customer_name: input.customerName,
+        customer_email: input.email,
+        ...(input.bvn ? { bvn: input.bvn } : {}), ...(input.nin ? { nin: input.nin } : {}),
+      };
+    }
+    return {
+      type: 'individual', virtual_account_type: 'Permanent', currency: 'NGN', provider: 'Bloc',
+      account_name: input.accountName, customer_email: input.email, reference,
+      ...(input.firstName ? { first_name: input.firstName } : {}),
+      ...(input.lastName ? { last_name: input.lastName } : {}),
+      ...(input.otherName ? { other_name: input.otherName } : {}),
+      ...(input.dateOfBirth ? { date_of_birth: input.dateOfBirth } : {}),
     };
+  }
 
-    if (this.customerRepo) {
-      return this.customerRepo.save(this.customerRepo.create(customer));
-    }
+  private invalid(message: string): never {
+    throw new CrayException({ code: CrayErrorCode.INVALID_INPUT, message, retryable: false });
+  }
 
-    const fullCustomer = customer as CrayCustomer;
-    this.memoryCustomers.set(customerId, fullCustomer);
-    return fullCustomer;
+  private toResult(account: CrayVirtualAccount): VirtualAccountResult {
+    return { accountNumber: FieldEncryptionUtil.decrypt(account.accountNumber, this.options.dataEncryptionKey), accountName: account.accountName, bankName: account.bankName, bankCode: account.bankCode, status: CrayStatus.SUCCESSFUL };
+  }
+
+  private async upsertCustomer(customerId: string, email: string): Promise<void> {
+    if (await this.findCustomer(customerId)) return;
+    const data = { customerId, email, status: 'ACTIVE', createdAt: new Date(), updatedAt: new Date() };
+    if (this.customerRepo) await this.customerRepo.save(this.customerRepo.create(data));
+    else this.memoryCustomers.set(customerId, data as CrayCustomer);
   }
 
   private async findCustomer(customerId: string): Promise<CrayCustomer | null> {
-    if (this.customerRepo) {
-      return this.customerRepo.findOne({ where: { customerId } });
-    }
-    return this.memoryCustomers.get(customerId) || null;
+    return this.customerRepo
+      ? this.customerRepo.findOne({ where: { customerId } })
+      : this.memoryCustomers.get(customerId) || null;
   }
 
   private async findActiveAccount(customerId: string): Promise<CrayVirtualAccount | null> {
-    if (this.accountRepo) {
-      return this.accountRepo.findOne({
-        where: { customerId },
-        order: { createdAt: 'DESC' },
-      });
-    }
-
-    for (const acc of Array.from(this.memoryVirtualAccounts.values())) {
-      if (acc.customerId === customerId && acc.status !== 'FAILED') {
-        return acc;
-      }
-    }
-    return null;
-  }
-
-  private async findPendingAccount(customerId: string): Promise<CrayVirtualAccount | null> {
-    if (this.accountRepo) {
-      return this.accountRepo.findOne({
-        where: { customerId, status: 'OTP_REQUIRED' },
-        order: { createdAt: 'DESC' },
-      });
-    }
-
-    for (const acc of Array.from(this.memoryVirtualAccounts.values())) {
-      if (acc.customerId === customerId && acc.status === 'OTP_REQUIRED') {
-        return acc;
-      }
-    }
-    return null;
+    if (this.accountRepo) return this.accountRepo.findOne({ where: { customerId, status: CrayStatus.SUCCESSFUL }, order: { createdAt: 'DESC' } });
+    return Array.from(this.memoryVirtualAccounts.values()).find((item) => item.customerId === customerId && item.status === CrayStatus.SUCCESSFUL) || null;
   }
 
   private async saveVirtualAccount(data: Partial<CrayVirtualAccount>): Promise<CrayVirtualAccount> {
-    const account: Partial<CrayVirtualAccount> = {
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    if (this.accountRepo) {
-      return this.accountRepo.save(this.accountRepo.create(account));
-    }
-
-    const fullAccount = {
-      id: Math.random().toString(),
-      ...account,
-    } as CrayVirtualAccount;
-    this.memoryVirtualAccounts.set(data.customerId || fullAccount.id, fullAccount);
-    return fullAccount;
-  }
-
-  private async persistVirtualAccount(account: CrayVirtualAccount): Promise<CrayVirtualAccount> {
-    account.updatedAt = new Date();
-    if (this.accountRepo) {
-      return this.accountRepo.save(account);
-    }
-    this.memoryVirtualAccounts.set(account.customerId, account);
+    const record = { ...data, createdAt: new Date(), updatedAt: new Date() };
+    if (this.accountRepo) return this.accountRepo.save(this.accountRepo.create(record));
+    const account = { id: ReferenceUtil.generate('local_va'), ...record } as CrayVirtualAccount;
+    this.memoryVirtualAccounts.set(account.reference, account);
     return account;
   }
 }
-

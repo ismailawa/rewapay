@@ -80,8 +80,13 @@ export class CheckoutService {
       });
     }
 
-    const amountNum = typeof dto.amount === 'string' ? parseFloat(dto.amount) : dto.amount;
-    if (!isFinite(amountNum) || amountNum <= 0) {
+    let amount: string;
+    try {
+      amount = MoneyUtil.toDecimalString(dto.amount);
+    } catch {
+      amount = '';
+    }
+    if (!MoneyUtil.isValidAmountString(amount)) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
         message: 'Amount must be a positive number.',
@@ -104,7 +109,7 @@ export class CheckoutService {
       return {
         sessionId: existing.payCode || existing.reference,
         paymentUrl: existing.paymentLink,
-        expiresAt: '', // Cray does not return an expiry on initialize
+        expiresAt: undefined,
       };
     }
 
@@ -113,7 +118,7 @@ export class CheckoutService {
       customerId: dto.customerId,
       walletId: dto.walletId,
       reference: dto.reference,
-      amount: MoneyUtil.format(amountNum),
+      amount,
       currency: dto.currency,
       defaultPaymentMethod: dto.defaultPaymentMethod,
       feeBearer: dto.feeBearer,
@@ -127,7 +132,7 @@ export class CheckoutService {
 
     // --- Build Cray payload (only fields that Cray accepts) ---
     const payload: Record<string, unknown> = {
-      amount: amountNum,
+      amount,
       currency: dto.currency,
       reference: dto.reference,
       defaultPaymentMethod: dto.defaultPaymentMethod,
@@ -145,7 +150,7 @@ export class CheckoutService {
     if (dto.metadata) payload['metadata'] = dto.metadata;
 
     this.logger.log(
-      `Initializing checkout ref: ${dto.reference}, amount: ${amountNum} ${dto.currency}, method: ${dto.defaultPaymentMethod}`,
+      `Initializing checkout ref: ${dto.reference}, amount: ${amount} ${dto.currency}, method: ${dto.defaultPaymentMethod}`,
     );
 
     // --- Call Cray POST /checkout/initialize ---
@@ -173,7 +178,7 @@ export class CheckoutService {
     return {
       sessionId: payCode || dto.reference,
       paymentUrl: link,
-      expiresAt: '', // Cray does not return an expiry timestamp
+      expiresAt: undefined,
     };
   }
 
@@ -324,4 +329,3 @@ export class CheckoutService {
     return record;
   }
 }
-

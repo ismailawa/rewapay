@@ -106,6 +106,7 @@ describe('ReconciliationService', () => {
       // Seed a transfer created 5 minutes ago (older than 3m, not stuck > 30m)
       const transfer = {
         reference: 'recon_transfer_001',
+        providerTransferReference: 'cray_transfer_001',
         status: CrayStatus.PENDING,
         createdAt: new Date(Date.now() - 5 * 60 * 1000), // 5m ago
       } as CrayTransfer;
@@ -125,7 +126,7 @@ describe('ReconciliationService', () => {
       expect(report.totalProcessed).toBe(1);
       expect(report.resolvedCount).toBe(1);
       expect(report.stuckCount).toBe(0);
-      expect(apiClient.get).toHaveBeenCalledWith('/payout/requery/recon_transfer_001');
+      expect(apiClient.get).toHaveBeenCalledWith('/payout/requery/cray_transfer_001');
       expect(transfer.status).toBe(CrayStatus.SUCCESSFUL);
     });
 
@@ -196,4 +197,3 @@ describe('ReconciliationService', () => {
     });
   });
 });
-

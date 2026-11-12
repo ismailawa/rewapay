@@ -11,24 +11,19 @@ import { CrayModule } from './modules/cray/cray.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        environment: config.get<'staging' | 'production' | 'test'>('CRAY_ENVIRONMENT', 'staging'),
-        // Scoped merchant API key (Bearer token) — provided as CRAYFI_MERCHANT_KEY_TEST in staging
-        apiToken: config.get<string>('CRAYFI_MERCHANT_KEY_TEST') ?? config.get<string>('CRAY_API_TOKEN'),
-        // Payment Initialization inline credentials (no Bearer / no X-Signature)
-        publicKey: config.get<string>('CRAYFI_PUBLIC_KEY_TEST'),
-        secretKey: config.get<string>('CRAYFI_SECRET_KEY_TEST'),
-        // Request signing — required by default on all Cray endpoints (Docs §Request Signing)
-        // Set CRAY_REQUEST_SIGNING_ENABLED=true + CRAY_SIGNING_PRIVATE_KEY to enable.
-        // Set to false only if Dashboard signing mode is "Off".
-        requestSigningEnabled:
-          config.get<string>('CRAY_REQUEST_SIGNING_ENABLED') === 'true',
-        signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID'),
-        signingPrivateKey: config.get<string>('CRAY_SIGNING_PRIVATE_KEY'),
-        webhookSecret: config.get<string>('CRAY_WEBHOOK_SECRET'),
-        webhookAllowedIps: config
-          .get<string>('CRAY_WEBHOOK_ALLOWED_IPS', '')
+        environment: config.get<'staging' | 'production' | 'test'>(
+          'CRAY_ENVIRONMENT',
+          'staging',
+        ),
+        collectionApiKey: config.get<string>('CRAY_COLLECTION_API_KEY', ''),
+        disbursementApiKey: config.get<string>('CRAY_DISBURSEMENT_API_KEY', ''),
+        signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID', ''),
+        signingPrivateKey: config.get<string>('CRAY_SIGNING_PRIVATE_KEY', ''),
+        webhookKeys: config
+          .get<string>('CRAY_WEBHOOK_KEYS', '')
           .split(',')
           .filter(Boolean),
+        dataEncryptionKey: config.get<string>('CRAY_DATA_ENCRYPTION_KEY', ''),
       }),
     }),
   ],

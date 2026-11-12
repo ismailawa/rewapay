@@ -11,30 +11,12 @@ import {
 export interface CrayModuleOptions {
   environment: 'staging' | 'production' | 'test';
   baseUrl: string;
-  /**
-   * Scoped API key (collection / disbursement / conversion).
-   * Sent as `Authorization: Bearer <apiToken>` on every main API request.
-   * Maps to CRAYFI_MERCHANT_KEY_TEST (staging) or the live merchant key.
-   */
-  apiToken: string;
-  /**
-   * Public key (`lrp_...`) sent in the request body for Payment Initialization
-   * endpoints (/payments/initialize, /payment/create, etc.).
-   * Maps to CRAYFI_PUBLIC_KEY_TEST (staging) or the live public key.
-   */
-  publicKey?: string;
-  /**
-   * Secret key (`lrs_...`) used in the URL path for the payment-verify endpoint:
-   * GET /payment/merchant/verify/{referenceCode}/{secretKey}
-   * Maps to CRAYFI_SECRET_KEY_TEST (staging) or the live secret key.
-   * Never send in a browser or log full request URLs when this is in the path.
-   */
-  secretKey?: string;
-  requestSigningEnabled: boolean;
-  signingPrivateKey?: string;
-  signingKeyId?: string; // kid registered in Cray Dashboard
-  webhookSecret?: string;
-  webhookAllowedIps: string[];
+  collectionApiKey: string;
+  disbursementApiKey: string;
+  signingPrivateKey: string;
+  signingKeyId: string;
+  webhookKeys: string[];
+  dataEncryptionKey: string;
   httpTimeoutMs: number;
   maxRetries: number;
   generalRpm: number;
@@ -63,18 +45,14 @@ export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
   return {
     environment,
     baseUrl: process.env.CRAY_BASE_URL || defaultBaseUrl,
-    // Scoped merchant API key — Bearer token for main API endpoints
-    apiToken: process.env.CRAYFI_MERCHANT_KEY_TEST || process.env.CRAY_API_TOKEN || '',
-    // Payment Initialization inline credentials
-    publicKey: process.env.CRAYFI_PUBLIC_KEY_TEST,
-    secretKey: process.env.CRAYFI_SECRET_KEY_TEST,
-    requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED === 'true',
-    signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY,
-    signingKeyId: process.env.CRAY_SIGNING_KEY_ID,
-    webhookSecret: process.env.CRAY_WEBHOOK_SECRET,
-    webhookAllowedIps: process.env.CRAY_WEBHOOK_ALLOWED_IPS
-      ? process.env.CRAY_WEBHOOK_ALLOWED_IPS.split(',').map((ip) => ip.trim())
+    collectionApiKey: process.env.CRAY_COLLECTION_API_KEY || '',
+    disbursementApiKey: process.env.CRAY_DISBURSEMENT_API_KEY || '',
+    signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY || '',
+    signingKeyId: process.env.CRAY_SIGNING_KEY_ID || '',
+    webhookKeys: process.env.CRAY_WEBHOOK_KEYS
+      ? process.env.CRAY_WEBHOOK_KEYS.split(',').map((key) => key.trim()).filter(Boolean)
       : [],
+    dataEncryptionKey: process.env.CRAY_DATA_ENCRYPTION_KEY || '',
     httpTimeoutMs: process.env.CRAY_HTTP_TIMEOUT_MS
       ? parseInt(process.env.CRAY_HTTP_TIMEOUT_MS, 10)
       : CRAY_DEFAULT_HTTP_TIMEOUT_MS,

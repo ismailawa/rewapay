@@ -11,7 +11,6 @@ describe('AccountsController', () => {
   beforeEach(async () => {
     const mockService = {
       createVirtualAccount: jest.fn(),
-      submitVirtualAccountOtp: jest.fn(),
       getVirtualAccount: jest.fn(),
     };
 
@@ -39,26 +38,14 @@ describe('AccountsController', () => {
 
     const result = await controller.createAccount({
       customerId: 'cust_1',
-      fullName: 'Test Name',
+      provider: 'Bloc',
+      accountType: 'Permanent',
+      accountName: 'Test Name',
       email: 'test@example.com',
-      bvn: '12345678901',
     });
 
     expect(result.accountNumber).toBe('1234567890');
     expect(service.createVirtualAccount).toHaveBeenCalledTimes(1);
-  });
-
-  it('should call accountsService.submitVirtualAccountOtp on POST otp', async () => {
-    service.submitVirtualAccountOtp.mockResolvedValueOnce({
-      status: CrayStatus.SUCCESSFUL,
-    });
-
-    const result = await controller.submitOtp({
-      customerId: 'cust_1',
-      otp: '123456',
-    });
-
-    expect(result.status).toBe(CrayStatus.SUCCESSFUL);
   });
 
   it('should throw NotFoundException if account not found on GET :customerId', async () => {
@@ -69,4 +56,3 @@ describe('AccountsController', () => {
     );
   });
 });
-

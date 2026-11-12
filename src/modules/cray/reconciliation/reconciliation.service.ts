@@ -90,8 +90,8 @@ export class ReconciliationService {
 
     return {
       currency: (match.currency || currency).toUpperCase(),
-      available: MoneyUtil.format(availableNum),
-      ledger: MoneyUtil.format(ledgerNum),
+      available: MoneyUtil.toDecimalString(availableNum),
+      ledger: MoneyUtil.toDecimalString(ledgerNum),
     };
   }
 
@@ -113,9 +113,9 @@ export class ReconciliationService {
 
     const snapshotData: Partial<CrayBalanceSnapshot> = {
       currency: (match?.currency || currency).toUpperCase(),
-      availableBalance: MoneyUtil.format(availableNum),
-      ledgerBalance: ledgerNum !== undefined ? MoneyUtil.format(ledgerNum) : undefined,
-      lockedBalance: lockedNum !== undefined ? MoneyUtil.format(lockedNum) : undefined,
+      availableBalance: MoneyUtil.toDecimalString(availableNum),
+      ledgerBalance: ledgerNum !== undefined ? MoneyUtil.toDecimalString(ledgerNum) : undefined,
+      lockedBalance: lockedNum !== undefined ? MoneyUtil.toDecimalString(lockedNum) : undefined,
       providerAccountId: match?.id,
       rawResponse: JSON.stringify(response),
       createdAt: new Date(),
@@ -179,10 +179,19 @@ export class ReconciliationService {
         });
         report.records.push(reconRecord);
       } else {
-        // Requery Cray payout status via GET /payout/requery/{reference}
+        if (!transfer.providerTransferReference) {
+          report.stuckCount++;
+          const reconRecord = await this.saveReconRecord({
+            reference: transfer.reference, type: 'TRANSFER', previousStatus: transfer.status,
+            newStatus: 'REQUIRES_MANUAL_REVIEW', resolved: false, flaggedForReview: true,
+            reviewReason: 'Ambiguous payout has no Cray transaction ID; automatic retry is unsafe.', requeriedAt: new Date(),
+          });
+          report.records.push(reconRecord);
+          continue;
+        }
         try {
           const requeryRes = await this.apiClient.get<Record<string, unknown>>(
-            `/payout/requery/${transfer.reference}`,
+            `/payout/requery/${transfer.providerTransferReference}`,
           );
           const rawStatus = (
             (requeryRes?.data as Record<string, unknown>)?.status || ''
@@ -385,4 +394,3 @@ export class ReconciliationService {
     this.memoryCheckouts.set(checkout.reference, checkout);
   }
 }
-

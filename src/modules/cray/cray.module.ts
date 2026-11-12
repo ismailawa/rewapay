@@ -2,6 +2,7 @@ import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { crayConfig, CrayModuleOptions, CrayModuleAsyncOptions } from './config/cray.config';
 import { CRAY_MODULE_OPTIONS, CRAY_SERVICE } from './config/cray.constants';
 import { CrayApiClient } from './clients/cray-api.client';
@@ -16,20 +17,18 @@ import { CrayIdempotencyRecord } from './entities/cray-idempotency.entity';
 import { CrayTransactionRecord } from './entities/cray-transaction.entity';
 import { CrayBalanceSnapshot } from './entities/cray-balance-snapshot.entity';
 import { CrayReconciliationRecord } from './entities/cray-reconciliation-record.entity';
-import { AccountsController } from './accounts/accounts.controller';
+import { CrayRefund } from './entities/cray-refund.entity';
 import { AccountsService } from './accounts/accounts.service';
-import { BanksController } from './banks/banks.controller';
 import { BanksService } from './banks/banks.service';
-import { TransfersController } from './transfers/transfers.controller';
 import { TransfersService } from './transfers/transfers.service';
-import { CheckoutController } from './checkout/checkout.controller';
 import { CheckoutService } from './checkout/checkout.service';
 import { WebhooksController } from './webhooks/webhooks.controller';
 import { WebhooksService } from './webhooks/webhooks.service';
 import { WebhooksVerifier } from './webhooks/webhooks.verifier';
 import { IdempotencyService } from './idempotency/idempotency.service';
-import { ReconciliationController } from './reconciliation/reconciliation.controller';
 import { ReconciliationService } from './reconciliation/reconciliation.service';
+import { RefundsService } from './refunds/refunds.service';
+import { ReconciliationJobs } from './reconciliation/reconciliation.jobs';
 
 const ENTITIES = [
   CrayCustomer,
@@ -42,21 +41,18 @@ const ENTITIES = [
   CrayTransactionRecord,
   CrayBalanceSnapshot,
   CrayReconciliationRecord,
+  CrayRefund,
 ];
 
 @Module({
   imports: [
     ConfigModule.forFeature(crayConfig),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forFeature(ENTITIES),
   ],
   controllers: [
-    AccountsController,
-    BanksController,
-    TransfersController,
-    CheckoutController,
     WebhooksController,
-    ReconciliationController,
   ],
   providers: [
     {
@@ -73,6 +69,8 @@ const ENTITIES = [
     WebhooksService,
     IdempotencyService,
     ReconciliationService,
+    RefundsService,
+    ReconciliationJobs,
     CrayService,
     {
       provide: CRAY_SERVICE,
@@ -92,6 +90,7 @@ const ENTITIES = [
     WebhooksService,
     IdempotencyService,
     ReconciliationService,
+    RefundsService,
     TypeOrmModule,
   ],
 })
@@ -111,15 +110,11 @@ export class CrayModule {
       imports: [
         ConfigModule.forFeature(crayConfig),
         EventEmitterModule.forRoot(),
+        ScheduleModule.forRoot(),
         TypeOrmModule.forFeature(ENTITIES),
       ],
       controllers: [
-        AccountsController,
-        BanksController,
-        TransfersController,
-        CheckoutController,
         WebhooksController,
-        ReconciliationController,
       ],
       providers: [
         customOptionsProvider,
@@ -132,6 +127,8 @@ export class CrayModule {
         WebhooksService,
         IdempotencyService,
         ReconciliationService,
+        RefundsService,
+        ReconciliationJobs,
         CrayService,
         {
           provide: CRAY_SERVICE,
@@ -151,6 +148,7 @@ export class CrayModule {
         WebhooksService,
         IdempotencyService,
         ReconciliationService,
+        RefundsService,
         TypeOrmModule,
       ],
     };
@@ -178,15 +176,11 @@ export class CrayModule {
         ...(options.imports || []),
         ConfigModule.forFeature(crayConfig),
         EventEmitterModule.forRoot(),
+        ScheduleModule.forRoot(),
         TypeOrmModule.forFeature(ENTITIES),
       ],
       controllers: [
-        AccountsController,
-        BanksController,
-        TransfersController,
-        CheckoutController,
         WebhooksController,
-        ReconciliationController,
       ],
       providers: [
         asyncOptionsProvider,
@@ -199,6 +193,8 @@ export class CrayModule {
         WebhooksService,
         IdempotencyService,
         ReconciliationService,
+        RefundsService,
+        ReconciliationJobs,
         CrayService,
         {
           provide: CRAY_SERVICE,
@@ -218,6 +214,7 @@ export class CrayModule {
         WebhooksService,
         IdempotencyService,
         ReconciliationService,
+        RefundsService,
         TypeOrmModule,
       ],
     };

@@ -25,7 +25,7 @@ export class CrayIdempotencyRecord {
 
   @Index()
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'PENDING' })
-  status: string; // PENDING | COMPLETED | FAILED
+  status: string; // PENDING | COMPLETED | FAILED | AMBIGUOUS
 
   @Column({ name: 'response_payload', type: 'text', nullable: true })
   responsePayload?: string; // JSON-serialized response for completed calls
@@ -45,4 +45,3 @@ export class CrayIdempotencyRecord {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
 }
-

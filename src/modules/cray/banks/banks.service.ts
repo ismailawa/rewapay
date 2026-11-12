@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CrayApiClient } from '../clients/cray-api.client';
@@ -10,6 +10,9 @@ import {
   ValidateBankAccountResult,
 } from '../interfaces/cray.interfaces';
 import { CrayBeneficiary } from '../entities/cray-beneficiary.entity';
+import { FieldEncryptionUtil } from '../utils/field-encryption.util';
+import { CRAY_MODULE_OPTIONS } from '../config/cray.constants';
+import type { CrayModuleOptions } from '../config/cray.config';
 
 interface CrayBankResponseItem {
   code?: string;
@@ -54,6 +57,7 @@ export class BanksService {
 
   constructor(
     private readonly apiClient: CrayApiClient,
+    @Inject(CRAY_MODULE_OPTIONS) private readonly options: CrayModuleOptions,
     @Optional()
     @InjectRepository(CrayBeneficiary)
     private readonly beneficiaryRepo?: Repository<CrayBeneficiary>,
@@ -157,7 +161,9 @@ export class BanksService {
     await this.saveBeneficiary({
       customerId: input.customerId,
       bankCode: input.bankCode,
-      accountNumber: input.accountNumber,
+      accountNumber: FieldEncryptionUtil.encrypt(input.accountNumber, this.options.dataEncryptionKey),
+      accountNumberHash: FieldEncryptionUtil.lookupHash(input.accountNumber, this.options.dataEncryptionKey),
+      accountNumberLast4: input.accountNumber.slice(-4),
       accountName,
       providerReference: refId,
       verificationStatus: 'VERIFIED',
@@ -174,13 +180,14 @@ export class BanksService {
    * Finds latest verified beneficiary record
    */
   async findBeneficiary(bankCode: string, accountNumber: string): Promise<CrayBeneficiary | null> {
+    const accountNumberHash = FieldEncryptionUtil.lookupHash(accountNumber, this.options.dataEncryptionKey);
     if (this.beneficiaryRepo) {
       return this.beneficiaryRepo.findOne({
-        where: { bankCode, accountNumber },
+        where: { bankCode, accountNumberHash },
         order: { createdAt: 'DESC' },
       });
     }
-    const key = `${bankCode}_${accountNumber}`;
+    const key = `${bankCode}_${accountNumberHash}`;
     return this.memoryBeneficiaries.get(key) || null;
   }
 
@@ -199,7 +206,7 @@ export class BanksService {
       id: Math.random().toString(),
       ...beneficiary,
     } as CrayBeneficiary;
-    const key = `${data.bankCode}_${data.accountNumber}`;
+    const key = `${data.bankCode}_${data.accountNumberHash}`;
     this.memoryBeneficiaries.set(key, full);
     return full;
   }

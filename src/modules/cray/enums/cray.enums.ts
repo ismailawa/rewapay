@@ -25,12 +25,16 @@ export enum CrayErrorCode {
   OTP_INVALID = 'OTP_INVALID',
   PROVIDER_REJECTED = 'PROVIDER_REJECTED',
   PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE',
+  PROVIDER_ERROR = 'PROVIDER_ERROR',
+  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
+  NOT_SUPPORTED = 'NOT_SUPPORTED',
   INSUFFICIENT_FUNDS = 'INSUFFICIENT_FUNDS',
 }
 
 export enum FundingMethod {
   CARD = 'card',
-  BANK_TRANSFER = 'bank_transfer',
+  BANK_TRANSFER = 'transfer',
+  MOBILE_MONEY = 'mobile_money',
 }
 
 export enum VirtualAccountType {
@@ -39,7 +43,6 @@ export enum VirtualAccountType {
 }
 
 export enum CustomerType {
-  INDIVIDUAL = 'Individual',
-  CORPORATE = 'Corporate',
+  INDIVIDUAL = 'individual',
+  CORPORATE = 'corporate',
 }
-

@@ -59,7 +59,7 @@ describe('CheckoutService', () => {
       expect(apiClient.post).toHaveBeenCalledWith(
         '/checkout/initialize',
         expect.objectContaining({
-          amount: 1000,
+          amount: '1000.00',
           currency: 'NGN',
           reference: 'checkout_ref_001',
           defaultPaymentMethod: 'transfer',
@@ -307,4 +307,3 @@ describe('CheckoutService', () => {
     });
   });
 });
-

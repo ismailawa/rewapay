@@ -1,279 +1,75 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as crypto from 'crypto';
 import { WebhooksService } from './webhooks.service';
 import { WebhooksVerifier } from './webhooks.verifier';
 import { CrayApiClient } from '../clients/cray-api.client';
-import { crayConfig } from '../config/cray.config';
-import { CrayErrorCode } from '../enums/cray.enums';
+import { CRAY_MODULE_OPTIONS } from '../config/cray.constants';
+import { TEST_CRAY_OPTIONS } from '../testing/test-options';
 import { CrayException } from '../interfaces/cray.interfaces';
-import { CrayWebhookPayloadDto } from './dto/webhook-payload.dto';
 
 describe('WebhooksService', () => {
   let service: WebhooksService;
-  let verifier: WebhooksVerifier;
-  let apiClient: jest.Mocked<CrayApiClient>;
-  let eventEmitter: jest.Mocked<EventEmitter2>;
-
-  const secret = 'test_webhook_secret_key_5678';
-  const allowedIps = ['192.168.1.50', '127.0.0.1'];
-
-  function computeValidHash(data: Record<string, unknown>, key: string): string {
-    const serialized = JSON.stringify(data);
-    return crypto.createHmac('sha256', key).update(serialized).digest('base64');
-  }
+  let api: jest.Mocked<CrayApiClient>;
+  let emitter: jest.Mocked<EventEmitter2>;
+  const secret = 'rotating_webhook_key_5678';
+  const hash = (data: Record<string, unknown>) => crypto.createHmac('sha256', secret).update(JSON.stringify(data)).digest('base64');
 
   beforeEach(async () => {
-    const mockApiClient = {
-      get: jest.fn(),
-      post: jest.fn(),
-    };
-
-    const mockEventEmitter = {
-      emit: jest.fn(),
-    };
-
-    const mockConfig = {
-      webhookSecret: secret,
-      webhookAllowedIps: allowedIps,
-    };
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        WebhooksService,
-        WebhooksVerifier,
-        { provide: CrayApiClient, useValue: mockApiClient },
-        { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: crayConfig.KEY, useValue: mockConfig },
-      ],
-    }).compile();
-
-    service = module.get<WebhooksService>(WebhooksService);
-    verifier = module.get<WebhooksVerifier>(WebhooksVerifier);
-    apiClient = module.get(CrayApiClient);
-    eventEmitter = module.get(EventEmitter2);
+    const module = await Test.createTestingModule({ providers: [
+      WebhooksService, WebhooksVerifier,
+      { provide: CrayApiClient, useValue: { get: jest.fn() } },
+      { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      { provide: CRAY_MODULE_OPTIONS, useValue: { ...TEST_CRAY_OPTIONS, webhookKeys: ['old_key_1111', secret] } },
+    ] }).compile();
+    service = module.get(WebhooksService);
+    api = module.get(CrayApiClient);
+    emitter = module.get(EventEmitter2);
   });
 
-  // =====================================================================
-  // Input Validation
-  // =====================================================================
-
-  describe('input validation', () => {
-    it('should throw INVALID_INPUT if event or data is missing', async () => {
-      await expect(
-        service.processWebhook({} as CrayWebhookPayloadDto),
-      ).rejects.toThrow(CrayException);
-    });
+  it('selects a rotating key by hint and emits only terminal collection success', async () => {
+    const data = { customer_reference: 'pay_1', amount: '100.00', currency: 'GHS', status: 'Successful', account_number: '0123456789' };
+    const result = await service.processWebhook({ event: 'collection.mobile_money.successful', data, hash: hash(data) }, { keyHint: '5678' });
+    expect(result.status).toBe('PROCESSED');
+    expect(emitter.emit).toHaveBeenCalledWith('funding.confirmed', expect.objectContaining({ reference: 'pay_1', currency: 'GHS' }));
   });
 
-  // =====================================================================
-  // Collection Events (HMAC Verification)
-  // =====================================================================
-
-  describe('collection webhooks', () => {
-    const successData = {
-      customer_reference: 'cust_ref_001',
-      transaction_reference: 'TNW4UKB1XQZSVP86E7AR',
-      amount: '5000.00',
-      status: 'Successful',
-      sender: {
-        sender_name: '08012345678',
-        sender_account_number: '08012345678',
-      },
-    };
-
-    it('should verify HMAC and emit funding.confirmed for successful collection', async () => {
-      const hash = computeValidHash(successData, secret);
-      const payload: CrayWebhookPayloadDto = {
-        event: 'collection.mobile_money.successful',
-        data: successData,
-        hash,
-      };
-
-      const result = await service.processWebhook(payload, { keyHint: '5678' });
-
-      expect(result.received).toBe(true);
-      expect(result.status).toBe('PROCESSED');
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
-        'funding.confirmed',
-        expect.objectContaining({
-          reference: 'cust_ref_001',
-          amount: '5000.00',
-          currency: 'NGN',
-        }),
-      );
-    });
-
-    it('should verify HMAC and emit funding.failed for failed collection', async () => {
-      const failedData = {
-        customer_reference: 'cust_ref_002',
-        amount: '2500.00',
-        status: 'Failed',
-        provider_message: 'FAIL_INSUFFICIENT_FUNDS',
-      };
-      const hash = computeValidHash(failedData, secret);
-      const payload: CrayWebhookPayloadDto = {
-        event: 'collection.mobile_money.failed',
-        data: failedData,
-        hash,
-      };
-
-      const result = await service.processWebhook(payload);
-
-      expect(result.received).toBe(true);
-      expect(result.status).toBe('PROCESSED');
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
-        'funding.failed',
-        expect.objectContaining({
-          reference: 'cust_ref_002',
-          reason: 'FAIL_INSUFFICIENT_FUNDS',
-        }),
-      );
-    });
-
-    it('should throw AUTHENTICATION_ERROR if HMAC signature is invalid', async () => {
-      const payload: CrayWebhookPayloadDto = {
-        event: 'collection.mobile_money.successful',
-        data: successData,
-        hash: 'invalid_base64_hash_here',
-      };
-
-      await expect(service.processWebhook(payload)).rejects.toThrow(CrayException);
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
-    });
+  it('does not emit a failure for pending collection events', async () => {
+    const data = { customer_reference: 'pay_2', amount: '100.00', status: 'Processing' };
+    await service.processWebhook({ event: 'collection.mobile_money.processing', data, hash: hash(data) }, { keyHint: '5678' });
+    expect(emitter.emit).not.toHaveBeenCalled();
   });
 
-  // =====================================================================
-  // Payout Webhooks (IP Allowlist + Authoritative Requery)
-  // =====================================================================
-
-  describe('payout webhooks', () => {
-    const payoutData = {
-      reference: 'PAYOUT_TXN_001',
-      amount: '1600.00',
-      status: 'Successful',
-      recipient: {
-        recipient_name: 'John Doe',
-        recipient_account_number: '0123456789',
-        recipient_bank_code: '058',
-      },
-    };
-
-    it('should verify via authoritative requery and emit transfer.completed', async () => {
-      apiClient.get.mockResolvedValueOnce({
-        status: true,
-        data: {
-          status: 'Successful',
-          reference: 'PAYOUT_TXN_001',
-        },
-      });
-
-      const payload: CrayWebhookPayloadDto = {
-        event: 'payout',
-        data: payoutData,
-        key: 'pk_live_key',
-      };
-
-      const result = await service.processWebhook(payload, {
-        clientIp: '192.168.1.50',
-      });
-
-      expect(result.received).toBe(true);
-      expect(result.status).toBe('PROCESSED');
-      expect(apiClient.get).toHaveBeenCalledWith('/payout/requery/PAYOUT_TXN_001');
-      expect(eventEmitter.emit).toHaveBeenCalledWith(
-        'transfer.completed',
-        expect.objectContaining({
-          reference: 'PAYOUT_TXN_001',
-          amount: '1600.00',
-          currency: 'NGN',
-        }),
-      );
-    });
-
-    it('should reject payout webhook from unlisted IP', async () => {
-      const payload: CrayWebhookPayloadDto = {
-        event: 'payout',
-        data: payoutData,
-      };
-
-      await expect(
-        service.processWebhook(payload, { clientIp: '198.51.100.1' }),
-      ).rejects.toThrow(CrayException);
-
-      expect(apiClient.get).not.toHaveBeenCalled();
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
-    });
-
-    it('should not emit transfer.completed if authoritative requery does not match', async () => {
-      apiClient.get.mockResolvedValueOnce({
-        status: true,
-        data: {
-          status: 'pending', // Requery says still pending!
-        },
-      });
-
-      const payload: CrayWebhookPayloadDto = {
-        event: 'payout',
-        data: payoutData,
-      };
-
-      const result = await service.processWebhook(payload, {
-        clientIp: '127.0.0.1',
-      });
-
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
-      expect(result.status).toBe('PROCESSED');
-    });
+  it('requires HMAC on payout events and uses provider reference for authoritative requery', async () => {
+    const data = { customer_reference: 'merchant_1', reference: 'CRAY_TX_1', amount: '500.00', status: 'Successful' };
+    api.get.mockResolvedValue({ data: { status: 'approved' } });
+    await service.processWebhook({ event: 'payout', data, hash: hash(data) }, { keyHint: '5678' });
+    expect(api.get).toHaveBeenCalledWith('/payout/requery/CRAY_TX_1');
+    expect(emitter.emit).toHaveBeenCalledWith('transfer.completed', expect.objectContaining({ reference: 'merchant_1', transferId: 'CRAY_TX_1' }));
   });
 
-  // =====================================================================
-  // Replay Defense / Idempotency
-  // =====================================================================
-
-  describe('replay defense & idempotency', () => {
-    it('should acknowledge duplicate delivery without re-emitting domain event', async () => {
-      const data = {
-        customer_reference: 'idempotent_ref_999',
-        amount: '1000.00',
-        status: 'Successful',
-      };
-      const hash = computeValidHash(data, secret);
-      const payload: CrayWebhookPayloadDto = {
-        event: 'collection.mobile_money.successful',
-        data,
-        hash,
-      };
-
-      // First delivery
-      const first = await service.processWebhook(payload);
-      expect(first.status).toBe('PROCESSED');
-      expect(eventEmitter.emit).toHaveBeenCalledTimes(1);
-
-      // Replay / duplicate delivery with identical reference & event
-      const second = await service.processWebhook(payload);
-      expect(second.status).toBe('PROCESSED');
-      // Should NOT have called eventEmitter.emit a second time
-      expect(eventEmitter.emit).toHaveBeenCalledTimes(1);
-    });
+  it('deduplicates exact deliveries while allowing later state transitions', async () => {
+    const pending = { customer_reference: 'pay_3', amount: '10.00', status: 'Processing' };
+    const success = { ...pending, status: 'Successful' };
+    expect((await service.processWebhook({ event: 'collection.mobile_money', data: pending, hash: hash(pending) }, { keyHint: '5678' })).status).toBe('PROCESSED');
+    expect((await service.processWebhook({ event: 'collection.mobile_money', data: pending, hash: hash(pending) }, { keyHint: '5678' })).status).toBe('DUPLICATE');
+    await service.processWebhook({ event: 'collection.mobile_money', data: success, hash: hash(success) }, { keyHint: '5678' });
+    expect(emitter.emit).toHaveBeenCalledTimes(1);
   });
 
-  // =====================================================================
-  // Unhandled Event
-  // =====================================================================
+  it('rejects invalid signatures and missing key hints during rotation', async () => {
+    const data = { reference: 'x' };
+    await expect(service.processWebhook({ event: 'payout', data, hash: 'bad' })).rejects.toThrow(CrayException);
+  });
 
-  describe('unhandled events', () => {
-    it('should mark unknown event types as IGNORED', async () => {
-      const payload: CrayWebhookPayloadDto = {
-        event: 'customer.kyc.approved',
-        data: { customer_id: 'cust_123' },
-      };
-
-      const result = await service.processWebhook(payload);
-      expect(result.received).toBe(true);
-      expect(result.status).toBe('IGNORED');
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
-    });
+  it('persists a redacted payload instead of raw sensitive values', async () => {
+    const data = { customer_reference: 'pay_redacted', status: 'Processing', account_number: '0123456789', bvn: '12345678901' };
+    await service.processWebhook({ event: 'collection.transfer.processing', data, hash: hash(data) }, { keyHint: '5678' });
+    const records = Array.from((service as unknown as { memory: Map<string, { sanitizedPayload: unknown }> }).memory.values());
+    expect(JSON.stringify(records[0].sanitizedPayload)).not.toContain('0123456789');
+    expect(JSON.stringify(records[0].sanitizedPayload)).not.toContain('12345678901');
+    expect(records[0].sanitizedPayload).toEqual(expect.objectContaining({
+      data: expect.objectContaining({ account_number: '***6789', bvn: '***8901' }),
+    }));
   });
 });
-

@@ -1,157 +1,71 @@
-# @rewapay/cray Integration Module
+# `@rewapay/cray`
 
-A NestJS dynamic module wrapping the **Cray Finance v2 API** for seamless integration into RewaPay backend services.
+NestJS integration for the signed [Cray Finance v2 API](https://docs.crayfi.com/v2). It supports provider-specific virtual accounts, hosted checkout, NGN payouts, refunds, verified webhooks, balance snapshots, and reconciliation.
 
----
+## Required configuration
 
-## 📦 Installation
-
-```bash
-npm install @rewapay/cray @nestjs/config @nestjs/event-emitter @nestjs/typeorm
-```
-
-The module depends on the following Nest packages, which are added as peer dependencies:
-- `@nestjs/config`
-- `@nestjs/event-emitter`
-- `@nestjs/typeorm`
-- `pg` (PostgreSQL driver)
-
-## ⚙️ Configuration
-
-Cray provides **three separate key types** (all from **Dashboard → Settings → Developer**). Copy `.env.example` and fill in your keys:
+Cray API keys carry exactly one scope. Collection and disbursement calls therefore require different keys. Request signing and encrypted sensitive-field storage are mandatory.
 
 ```dotenv
-CRAY_ENVIRONMENT=staging               # staging | production | test
+CRAY_ENVIRONMENT=staging
 CRAY_BASE_URL=https://sandbox.crayfi.io
-
-# 1. Scoped merchant API key → Authorization: Bearer <key>
-#    Covers: virtual accounts, payouts, disburse, balance, hosted checkout
-CRAYFI_MERCHANT_KEY_TEST=your_merchant_api_key
-
-# 2. Public key (lrp_...) → sent in request BODY for payment-init endpoints
-#    Covers: /payments/initialize, /payment/create, /payment/merchant/create
-CRAYFI_PUBLIC_KEY_TEST=lrp_your_public_key
-
-# 3. Secret key (lrs_...) → sent in URL PATH for payment-verify endpoint only
-#    GET /payment/merchant/verify/{referenceCode}/{secretKey}
-#    ⚠️  Never expose in browser code, logs, or client-side requests
-CRAYFI_SECRET_KEY_TEST=lrs_your_secret_key
-
-# Webhook key (separate scope, cannot call the API)
-CRAY_WEBHOOK_SECRET=your_webhook_scoped_api_key
-CRAY_WEBHOOK_ALLOWED_IPS=127.0.0.1,::1
-
-# Request signing — only set to true if enabled in your Cray Dashboard
-CRAY_REQUEST_SIGNING_ENABLED=false
+CRAY_COLLECTION_API_KEY=collection_scoped_key
+CRAY_DISBURSEMENT_API_KEY=disbursement_scoped_key
+CRAY_SIGNING_KEY_ID=registered_key_uuid
+CRAY_SIGNING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+CRAY_WEBHOOK_KEYS=webhook_scope_key_current,webhook_scope_key_previous
+CRAY_DATA_ENCRYPTION_KEY=secret_from_your_key_manager
+DATABASE_URL=postgresql://...
 ```
 
-> **How the three keys map to Cray's auth docs:**
->
-> | Key | Auth mechanism | Endpoints |
-> |---|---|---|
-> | `CRAYFI_MERCHANT_KEY_TEST` | `Authorization: Bearer <key>` header | All main API endpoints |
-> | `CRAYFI_PUBLIC_KEY_TEST` | `public_key` field in request **body** | Payment Initialization endpoints |
-> | `CRAYFI_SECRET_KEY_TEST` | `{secretKey}` in URL **path** | `GET /payment/merchant/verify/{ref}/{key}` only |
+The module fails during startup if either scoped key, the signing configuration, all webhook keys, or the encryption key is missing. Webhook keys support rotation; Cray's `Cray-Webhook-Key` hint selects a key by its final four characters.
 
-## 📚 Usage Guide
+## Registration
 
-### Register the module in `AppModule`
+The host application must configure TypeORM before importing `CrayModule`.
 
-```typescript
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CrayModule } from './modules/cray/cray.module';
-
-@Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    CrayModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        environment: config.get<'staging' | 'production' | 'test'>('CRAY_ENVIRONMENT', 'staging'),
-        // Scoped merchant key — Bearer token for main API endpoints
-        apiToken: config.get<string>('CRAYFI_MERCHANT_KEY_TEST'),
-        // Payment Initialization inline credentials
-        publicKey: config.get<string>('CRAYFI_PUBLIC_KEY_TEST'),
-        secretKey: config.get<string>('CRAYFI_SECRET_KEY_TEST'),
-        // Request signing — only needed if enabled in Cray Dashboard
-        requestSigningEnabled: config.get('CRAY_REQUEST_SIGNING_ENABLED') === 'true',
-        signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID'),
-        signingPrivateKey: config.get<string>('CRAY_SIGNING_PRIVATE_KEY'),
-        webhookSecret: config.get<string>('CRAY_WEBHOOK_SECRET'),
-        webhookAllowedIps: config
-          .get<string>('CRAY_WEBHOOK_ALLOWED_IPS', '')
-          .split(',')
-          .filter(Boolean),
-      }),
-    }),
-  ],
-  controllers: [],
-  providers: [],
-})
-export class AppModule {}
+```ts
+CrayModule.forRoot({
+  environment: 'production',
+  baseUrl: 'https://pay.crayfi.io',
+  collectionApiKey: process.env.CRAY_COLLECTION_API_KEY!,
+  disbursementApiKey: process.env.CRAY_DISBURSEMENT_API_KEY!,
+  signingKeyId: process.env.CRAY_SIGNING_KEY_ID!,
+  signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY!,
+  webhookKeys: process.env.CRAY_WEBHOOK_KEYS!.split(','),
+  dataEncryptionKey: process.env.CRAY_DATA_ENCRYPTION_KEY!,
+  httpTimeoutMs: 15_000,
+  maxRetries: 3,
+  generalRpm: 60,
+  collectionPayoutRpm: 30,
+});
 ```
 
-### Inject the service facade
+Inject `CRAY_SERVICE` as `ICrayService`. Funding requires real customer details:
 
-```typescript
-import { Inject, Injectable } from '@nestjs/common';
-import { CRAY_SERVICE, ICrayService } from './modules/cray';
-
-@Injectable()
-export class WalletFundingService {
-  constructor(@Inject(CRAY_SERVICE) private readonly cray: ICrayService) {}
-
-  async fundWallet(customerId: string, walletId: string, amount: string) {
-    return this.cray.createFundingSession({
-      customerId,
-      walletId,
-      amount,
-      reference: `fund-${Date.now()}`,
-      method: 'transfer',
-    });
-  }
-}
+```ts
+await cray.createFundingSession({
+  customerId: 'customer-id',
+  walletId: 'wallet-id',
+  amount: '100.00',
+  reference: 'unique-reference',
+  method: 'transfer',
+  customer: { name: 'Jane Doe', email: 'jane@example.com' },
+  callbackUrl: 'https://merchant.example/payments/return',
+});
 ```
 
-### Listening to domain events
+Only `POST /cray/webhooks` is registered as a public controller. Bank, payout, checkout, balance, and reconciliation operations are exposed through the in-process service so the host controls authorization.
 
-```typescript
-import { Injectable } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { FundingConfirmedEvent, TransferCompletedEvent } from './modules/cray';
+## Database and verification
 
-@Injectable()
-export class WalletEventListener {
-  @OnEvent('funding.confirmed')
-  handleFunding(event: FundingConfirmedEvent) {
-    console.log('Funding confirmed', event);
-  }
-
-  @OnEvent('transfer.completed')
-  handleTransfer(event: TransferCompletedEvent) {
-    console.log('Transfer completed', event);
-  }
-}
-```
-
-## 🗂️ Documentation
-
-- **API reference**: `docs/cray-api-v2-docs.md`
-- **Task checklist & acceptance criteria**: `docs/task-checklist.md`
-- **Project status & roadmap**: `STATUS.md`
-
-## 🧪 Testing
+Run the security backfill migration with `CRAY_DATA_ENCRYPTION_KEY` set:
 
 ```bash
-npm run test              # unit tests
-npm run test:e2e          # end‑to‑end acceptance suite
-npm run test:cov          # coverage report
+npm run migration:run
+npm test -- --runInBand
+npm run build
+npm run test:e2e -- --runInBand
 ```
 
-All tests must pass (`npm run build` should also compile without errors) before merging.
-
----
-
-Built with ❤️ by the RewaPay team.
+The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification additionally requires real test-scoped Cray keys and a registered signing public key.

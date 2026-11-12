@@ -20,8 +20,7 @@ export class CrayWebhookPayloadDto {
    * Present on collection events.
    */
   @IsString()
-  @IsOptional()
-  hash?: string;
+  hash: string;
 
   /**
    * Optional key present on payout events.
@@ -30,4 +29,3 @@ export class CrayWebhookPayloadDto {
   @IsOptional()
   key?: string;
 }
-

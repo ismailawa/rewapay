@@ -1,134 +1,25 @@
-# Cray API Documentation Reference & Integration Guide (v2)
+# Cray v2 Integration Reference
 
-This folder contains the official API reference documentation retrieved from **https://docs.crayfi.com/v2** for offline reference, integration validation, and contract verification.
+The implementation is validated against [`cray-api-v2-docs.md`](./cray-api-v2-docs.md), sourced from [Cray v2](https://docs.crayfi.com/v2).
 
-- **Full Documentation Dump:** [cray-api-v2-docs.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/cray-api-v2-docs.md) (retrieved from `https://docs.crayfi.com/llms-full.txt`)
-- **Task Checklist & Acceptance Criteria:** [task-checklist.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/task-checklist.md)
-- **Roadmap & Progress Status:** [STATUS.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/STATUS.md)
+## Implemented provider contracts
 
----
+- Collection-scoped: `POST /virtual-accounts/create`, `POST /corporate-accounts/create`, hosted checkout initialize/query, `GET /query/{reference}`, `POST /charge`, `GET /balance`, and refund initiate/query.
+- Disbursement-scoped: bank directory, account validation, payout disbursement, and payout requery.
+- All API calls use mandatory ES256 signing over the five-line canonical request. Collection and disbursement keys are selected by endpoint scope.
+- Webhooks use a webhook-scope API key, key-hint rotation, HMAC-SHA256 verification of the `data` object, exact-delivery fingerprinting, redacted persistence, and authoritative payout/payin requery.
 
-## 1. Module Consumption Guide (`@rewapay/cray`)
+## Safety behavior
 
-The `@rewapay/cray` module is an in-process NestJS module designed to be imported directly into the RewaPay wallet and core backend applications.
+- Amounts remain decimal strings and are processed with `decimal.js`.
+- A fresh `ref_id` is obtained immediately before every NGN payout.
+- Ambiguous financial calls stay unresolved and are never blindly replayed. Requery uses Cray's returned transaction ID only.
+- Account numbers are AES-256-GCM encrypted at rest with deterministic lookup hashes where lookup is required.
+- Reconciliation runs every five minutes; balance snapshots run hourly. Items without a provider transaction ID are escalated for manual review.
+- Full and partial refunds use `POST /refund/initiate`; status uses `GET /refund/query/{reference}`.
 
-### Registration in AppModule
+## Public module contract
 
-```typescript
-import { Module } from '@nestjs/common';
-import { CrayModule } from './modules/cray';
+See the root [`README.md`](../README.md) for configuration and migration instructions. The public facade is `ICrayService`; the only registered HTTP controller is the webhook receiver.
 
-@Module({
-  imports: [
-    CrayModule.forRoot({
-      environment: 'production', // 'staging' | 'production' | 'test'
-      apiToken: process.env.CRAY_API_TOKEN,
-      requestSigningEnabled: true,
-      signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY,
-      signingKeyId: process.env.CRAY_SIGNING_KEY_ID,
-      webhookSecret: process.env.CRAY_WEBHOOK_SECRET,
-      webhookAllowedIps: (process.env.CRAY_WEBHOOK_ALLOWED_IPS || '').split(','),
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-### Injecting the Service Facade (`ICrayService`)
-
-```typescript
-import { Inject, Injectable } from '@nestjs/common';
-import { CRAY_SERVICE, ICrayService } from './modules/cray';
-
-@Injectable()
-export class WalletFundingService {
-  constructor(
-    @Inject(CRAY_SERVICE)
-    private readonly crayService: ICrayService,
-  ) {}
-
-  async fundWallet(customerId: string, walletId: string, amount: string, reference: string) {
-    return this.crayService.createFundingSession({
-      customerId,
-      walletId,
-      amount,
-      reference,
-      method: 'transfer',
-    });
-  }
-}
-```
-
-### Listening to Webhook Domain Events
-
-The module cryptographically verifies webhook signatures and emits typed domain events via `EventEmitter2`:
-
-```typescript
-import { Injectable } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { FundingConfirmedEvent, TransferCompletedEvent } from './modules/cray';
-
-@Injectable()
-export class WalletEventListener {
-  @OnEvent('funding.confirmed')
-  handleFundingConfirmed(event: FundingConfirmedEvent) {
-    // Credit customer wallet with strict 2-decimal string NGN amount
-    console.log(`Wallet ${event.walletId} credited: ${event.amount} ${event.currency}`);
-  }
-
-  @OnEvent('transfer.completed')
-  handleTransferCompleted(event: TransferCompletedEvent) {
-    console.log(`Transfer ${event.reference} completed: ${event.amount} NGN`);
-  }
-}
-```
-
----
-
-## 2. Key Validated Endpoints & Schemas Summary
-
-### Environments & Base URLs
-- **Staging / Sandbox:** `https://sandbox.crayfi.io`
-- **Live / Production:** `https://pay.crayfi.io`
-
-### Request Authentication & Signing (`X-Signature`)
-- **Authentication:** `Authorization: Bearer <API_KEY>`
-- **Signing Scheme:** ES256 (ECDSA P-256 / SHA-256)
-- **Header:**
-  ```text
-  X-Signature: t=<unix-ms>,n=<uuid>,kid=<key-id>,v1=<base64-der-signature>
-  ```
-- **Canonical String (5 lines joined by `\n`):**
-  ```text
-  METHOD
-  CANONICAL_PATH_WITH_QUERY
-  TIMESTAMP_MS
-  NONCE_UUID
-  BODY_SHA256_HEX
-  ```
-
-### Virtual Accounts
-- **Create Permanent / One-time Account:** `POST /virtual-accounts/create`
-- **Wema OTP Confirmation:** `POST /api/virtual-accounts/generate-wallet`
-- **List Virtual Accounts:** `GET /virtual-accounts`
-
-### Payouts & Transfers
-- **Get Banks:** `GET /payout/banks` (no query params for Nigeria).
-- **Validate Beneficiary:** `POST /payout/accounts/validate`
-- **Process Transfer:** `POST /payout/disburse`
-- **Verify Payout Status:** `GET /payout/requery/{transaction_id}`
-
-### Collections & Hosted Checkout
-- **Initialize Hosted Checkout:** `POST /checkout/initialize`
-- **Query Hosted Checkout:** `GET /checkout/query/{reference}`
-- **General Transaction Query:** `GET /query/{reference}`
-- **Card Charge:** `POST /charge`
-
-### Webhooks
-- **Endpoint:** `POST /cray/webhooks`
-- **HMAC Signature (Collections):** `base64( HMAC-SHA256( JSON of "data" object, <webhookSecret> ) )`
-- **Payin/Payout Events:** Protected via IP allowlist check + authoritative server-side requery.
-
-### Balances & Reconciliation
-- **Get Wallet Balance:** `GET /balance`
-- **Reconciliation Sweep:** `POST /cray/reconciliation/run` (flags items stuck in PENDING > 30m)
+The Wema OTP SDK helper is not exposed because the official HTTP documentation does not define an authoritative endpoint contract for it. Payment-initialization credentials are also omitted because this module does not implement those endpoints.

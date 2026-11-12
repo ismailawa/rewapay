@@ -37,8 +37,11 @@ export class CrayTransfer {
   @Column({ name: 'fee', type: 'numeric', precision: 18, scale: 2, nullable: true })
   fee?: string;
 
-  @Column({ name: 'account_number', type: 'varchar', length: 32 })
+  @Column({ name: 'account_number_encrypted', type: 'text' })
   accountNumber: string;
+
+  @Column({ name: 'account_number_last4', type: 'varchar', length: 4 })
+  accountNumberLast4: string;
 
   @Column({ name: 'bank_code', type: 'varchar', length: 32 })
   bankCode: string;
@@ -77,4 +80,3 @@ export class CrayTransfer {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-

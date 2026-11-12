@@ -4,6 +4,8 @@ import { BanksService } from '../banks/banks.service';
 import { CrayApiClient } from '../clients/cray-api.client';
 import { CrayErrorCode, CrayStatus } from '../enums/cray.enums';
 import { CrayException } from '../interfaces/cray.interfaces';
+import { CRAY_MODULE_OPTIONS } from '../config/cray.constants';
+import { TEST_CRAY_OPTIONS } from '../testing/test-options';
 
 describe('TransfersService', () => {
   let service: TransfersService;
@@ -24,6 +26,7 @@ describe('TransfersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TransfersService,
+        { provide: CRAY_MODULE_OPTIONS, useValue: TEST_CRAY_OPTIONS },
         {
           provide: CrayApiClient,
           useValue: mockApiClient,
@@ -38,6 +41,10 @@ describe('TransfersService', () => {
     service = module.get<TransfersService>(TransfersService);
     apiClient = module.get(CrayApiClient);
     banksService = module.get(BanksService);
+    banksService.validateBankAccount.mockResolvedValue({
+      accountName: 'TEST RECIPIENT',
+      refId: 'sess_123',
+    });
   });
 
   describe('initiateTransfer', () => {
@@ -54,6 +61,10 @@ describe('TransfersService', () => {
     };
 
     it('should successfully initiate payout when account is pre-validated with ref_id', async () => {
+      banksService.validateBankAccount.mockResolvedValueOnce({
+        accountName: 'TEST RECIPIENT',
+        refId: 'sess_pre_validated_123',
+      });
       banksService.findBeneficiary.mockResolvedValueOnce({
         id: 'ben_1',
         bankCode: '000013',
@@ -342,4 +353,3 @@ describe('TransfersService', () => {
     });
   });
 });
-

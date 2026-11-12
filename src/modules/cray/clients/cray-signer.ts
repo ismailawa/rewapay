@@ -50,16 +50,21 @@ export class CraySigner {
       .split('&')
       .filter((p) => p.length > 0)
       .map((pair) => {
-        const [k, v = ''] = pair.split('=');
-        const decodedKey = decodeURIComponent(k.replace(/\+/g, '%20'));
-        const decodedVal = decodeURIComponent(v.replace(/\+/g, '%20'));
+        const separator = pair.indexOf('=');
+        const k = separator === -1 ? pair : pair.slice(0, separator);
+        const v = separator === -1 ? '' : pair.slice(separator + 1);
+        const decodedKey = decodeURIComponent(k);
+        const decodedVal = decodeURIComponent(v);
         return {
           key: encodeURIComponent(decodedKey),
           val: encodeURIComponent(decodedVal),
         };
       });
 
-    pairs.sort((a, b) => a.key.localeCompare(b.key));
+    pairs.sort((a, b) => {
+      const byKey = a.key.localeCompare(b.key);
+      return byKey === 0 ? a.val.localeCompare(b.val) : byKey;
+    });
     const canonicalQuery = pairs.map((p) => `${p.key}=${p.val}`).join('&');
 
     return `${normalizedPath}?${canonicalQuery}`;

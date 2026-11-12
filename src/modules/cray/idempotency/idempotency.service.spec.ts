@@ -140,7 +140,7 @@ describe('IdempotencyService', () => {
       await firstPromise;
     });
 
-    it('should take over expired lock if previous worker died', async () => {
+    it('should quarantine an expired lock instead of replaying a financial operation', async () => {
       const mockFn = jest.fn().mockResolvedValue({ recovered: true });
 
       // Simulate a stale pending lock
@@ -153,16 +153,15 @@ describe('IdempotencyService', () => {
       });
 
       // Next execution with 10s timeout should take over the lock
-      const result = await service.execute({
+      await expect(service.execute({
         key: 'stale_key',
         operation: 'disburse',
         payload: { ref: 'abc' },
         lockTimeoutSeconds: 10,
         fn: mockFn,
-      });
-
-      expect(result).toEqual({ recovered: true });
-      expect(mockFn).toHaveBeenCalledTimes(1);
+      })).rejects.toThrow(CrayException);
+      expect(mockFn).not.toHaveBeenCalled();
+      expect((await service['findByKey']('stale_key'))?.status).toBe('AMBIGUOUS');
     });
 
     it('should re-throw error and mark status FAILED when fn fails', async () => {
@@ -193,4 +192,3 @@ describe('IdempotencyService', () => {
     });
   });
 });
-

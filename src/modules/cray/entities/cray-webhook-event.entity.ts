@@ -16,6 +16,10 @@ export class CrayWebhookEvent {
   @Column({ name: 'event_id', type: 'varchar', length: 128 })
   eventId: string;
 
+  @Index({ unique: true })
+  @Column({ name: 'fingerprint', type: 'varchar', length: 64 })
+  fingerprint: string;
+
   @Index()
   @Column({ name: 'event_type', type: 'varchar', length: 64 })
   eventType: string;
@@ -27,8 +31,8 @@ export class CrayWebhookEvent {
   @Column({ name: 'signature', type: 'varchar', length: 255, nullable: true })
   signature?: string;
 
-  @Column({ name: 'raw_payload', type: 'text' })
-  rawPayload: string;
+  @Column({ name: 'sanitized_payload', type: 'jsonb' })
+  sanitizedPayload: unknown;
 
   @Column({ name: 'verified', type: 'boolean', default: false })
   verified: boolean;
@@ -52,4 +56,3 @@ export class CrayWebhookEvent {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
 }
-
