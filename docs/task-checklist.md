@@ -135,5 +135,6 @@
   - [x] Verify TypeORM migration show/run/revert scripts pass the data-source argument and load the standalone data source correctly.
   - [x] Register the host application's TypeORM `DataSource` from `DATABASE_URL` before constructing Cray repositories.
   - [x] E2E-import the real host `AppModule` and prove its `DataSource` and Cray repositories construct together.
+  - [x] Exercise the entire Cray module through database-backed E2E tests: all 11 facade operations, provider-specific accounts, all hosted checkout methods, payout/refund lifecycles, direct collection helpers, balance snapshots, reconciliation, encrypted persistence, and signed webhook transitions/deduplication.
   - [x] Pass unit, build, and database-backed E2E verification.
   - [ ] Run the opt-in live sandbox contract suite with externally supplied scoped credentials, webhook keys, and signing credentials when enabled.

@@ -1,7 +1,7 @@
 # RewaPay × Cray Module Integration Status & Plan
 
 **Document Version:** 1.0.0  
-**Date:** 10 November 2026  
+**Date:** 12 November 2026
 **Module Type:** In-process NestJS Module (`@rewapay/cray` / `CrayModule`)  
 **Target Environment:** NestJS 11, TypeScript 5.7, Node.js 22, PostgreSQL  
 
@@ -76,9 +76,9 @@ The module is broken down into discrete, self-contained tasks. Each task is exec
 | **Task 8** | **Idempotency & Database Persistence Layer** | **REMEDIATED** | - Database unique-constraint claim with canonical request hashing<br>- Completed response playback and payload mismatch rejection<br>- Concurrent callers cannot both execute<br>- Expired/retryable financial calls become `AMBIGUOUS` and require reconciliation; they are never automatically replayed |
 | **Task 9** | **Reconciliation Engine & Balance Snapshots** | **REMEDIATED** | - Platform balance retrieval and hourly snapshots via `GET /balance`<br>- Five-minute reconciliation schedule<br>- Requery only with valid provider transaction IDs<br>- Missing/ambiguous provider IDs are escalated for manual review<br>- Operational HTTP controllers are not registered |
 | **Task 10**| **Unified Service Facade (`ICrayService`) & Acceptance Suite** | **REMEDIATED** | - Unified in-process `CrayService` implementing all 11 current operations of `ICrayService`<br>- Refund status query included; Wema OTP facade removed<br>- Dual injection token support (`CrayService` and `CRAY_SERVICE`)<br>- Only the public webhook HTTP controller is registered |
-| **Task 11** | **Cray v2 Contract & Security Remediation** | **COMPLETED** | - Separate scoped Bearer keys and configurable optional signing<br>- Provider-specific account contracts and real refunds<br>- Atomic/quarantined idempotency behavior<br>- HMAC verification for all webhook types with rotation and delivery fingerprints<br>- Correct provider-ID reconciliation and scheduled jobs<br>- Encrypted account storage, redacted webhook storage, module-safe runnable migration tooling, host `DataSource` registration, database-backed E2E coverage, aligned environment configuration, and Docker Compose PostgreSQL infrastructure |
+| **Task 11** | **Cray v2 Contract & Security Remediation** | **COMPLETED** | - Separate scoped Bearer keys and configurable optional signing<br>- Provider-specific account contracts and real refunds<br>- Atomic/quarantined idempotency behavior<br>- HMAC verification for all webhook types with rotation and delivery fingerprints<br>- Correct provider-ID reconciliation and scheduled jobs<br>- Encrypted account storage, redacted webhook storage, module-safe runnable migration tooling, host `DataSource` registration, full database-backed module E2E coverage, aligned environment configuration, and Docker Compose PostgreSQL infrastructure |
 
-**Current verification:** 25 unit/acceptance suites (134 tests), clean TypeScript build, and 1 database-backed E2E suite (3 tests, including host `AppModule` wiring) pass. Live sandbox verification remains a release gate because scoped Cray credentials and webhook keys were not supplied; signing credentials are additionally needed only when enabled for that merchant.
+**Current verification:** 25 unit/acceptance suites (134 tests), clean TypeScript build, and 2 database-backed E2E suites (10 tests) pass. The E2E coverage includes host `AppModule` wiring plus all 11 facade operations, provider-specific virtual accounts, hosted checkout methods, direct collection helpers, payout/refund lifecycles, encrypted persistence, balance snapshots, reconciliation, and signed webhook transitions/deduplication. Live sandbox verification remains a release gate because scoped Cray credentials and webhook keys were not supplied; signing credentials are additionally needed only when enabled for that merchant.
 
 ---
 
