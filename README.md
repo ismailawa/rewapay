@@ -75,4 +75,6 @@ npm run test:e2e -- --runInBand
 
 `compose.yaml` starts PostgreSQL 16 with a persistent named volume, readiness health check, and the UUID extension required by the migration. Use `npm run infra:logs` to follow database logs and `npm run infra:down` to stop the container without deleting its data.
 
+The local database is published on host port `5433` to avoid collisions with a system PostgreSQL instance on the conventional `5432` port.
+
 The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires real test-scoped Cray keys; a registered signing key is additionally required when the sandbox merchant has signing enabled.
