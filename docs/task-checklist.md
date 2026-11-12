@@ -133,5 +133,6 @@
   - [x] Align `.env.example` with scoped Bearer keys, optional signing, rotating webhook keys, encryption, and `DATABASE_URL`.
   - [x] Provide Docker Compose PostgreSQL infrastructure with readiness checks, persistent storage, and required UUID extension initialization.
   - [x] Verify TypeORM migration show/run/revert scripts pass the data-source argument and load the standalone data source correctly.
+  - [x] Register the host application's TypeORM `DataSource` from `DATABASE_URL` before constructing Cray repositories.
   - [x] Pass unit, build, and database-backed E2E verification.
   - [ ] Run the opt-in live sandbox contract suite with externally supplied scoped credentials, webhook keys, and signing credentials when enabled.
