@@ -3,6 +3,7 @@ import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { DataType, newDb } from 'pg-mem';
 import { randomUUID } from 'crypto';
+import { AppModule } from '../src/app.module';
 import { AppController } from '../src/app.controller';
 import { AppService } from '../src/app.service';
 import { CrayModule } from '../src/modules/cray/cray.module';
@@ -12,28 +13,64 @@ import { IdempotencyService } from '../src/modules/cray/idempotency/idempotency.
 import { CrayException } from '../src/modules/cray/interfaces/cray.interfaces';
 import * as entities from '../src/modules/cray/entities';
 
+const entityList = Object.values(entities).filter(
+  (value) => typeof value === 'function',
+);
+
+async function createTestDataSource(): Promise<DataSource> {
+  const db = newDb({ autoCreateForeignKeyIndices: true });
+  db.public.registerFunction({
+    name: 'current_database',
+    implementation: () => 'cray_test',
+  });
+  db.public.registerFunction({
+    name: 'version',
+    implementation: () => 'PostgreSQL 16',
+  });
+  db.public.registerFunction({
+    name: 'uuid_generate_v4',
+    implementation: randomUUID,
+    impure: true,
+  });
+  db.public.registerFunction({
+    name: 'quote_ident',
+    args: [DataType.text],
+    returns: DataType.text,
+    implementation: (value: string) => value,
+  });
+  db.public.registerFunction({
+    name: 'obj_description',
+    args: [DataType.regclass, DataType.text],
+    returns: DataType.text,
+    implementation: () => null as unknown as string,
+  });
+  db.public.registerFunction({
+    name: 'col_description',
+    args: [DataType.regclass, DataType.integer],
+    returns: DataType.text,
+    implementation: () => null as unknown as string,
+  });
+  const source = await db.adapters.createTypeormDataSource({
+    type: 'postgres',
+    entities: entityList,
+    synchronize: true,
+    retryAttempts: 1,
+  });
+  return source.initialize();
+}
+
 describe('Cray module database-backed e2e', () => {
   let moduleFixture: TestingModule;
 
   beforeAll(async () => {
-    const db = newDb({ autoCreateForeignKeyIndices: true });
-    db.public.registerFunction({ name: 'current_database', implementation: () => 'cray_test' });
-    db.public.registerFunction({ name: 'version', implementation: () => 'PostgreSQL 16' });
-    db.public.registerFunction({ name: 'uuid_generate_v4', implementation: randomUUID, impure: true });
-    db.public.registerFunction({ name: 'quote_ident', args: [DataType.text], returns: DataType.text, implementation: (value: string) => value });
-    db.public.registerFunction({ name: 'obj_description', args: [DataType.regclass, DataType.text], returns: DataType.text, implementation: () => null as unknown as string });
-    db.public.registerFunction({ name: 'col_description', args: [DataType.regclass, DataType.integer], returns: DataType.text, implementation: () => null as unknown as string });
-    const entityList = Object.values(entities).filter((value) => typeof value === 'function');
+    const source = await createTestDataSource();
 
     moduleFixture = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRootAsync({
           retryAttempts: 1,
-          useFactory: () => ({ type: 'postgres', entities: entityList, synchronize: true, retryAttempts: 1 }),
-          dataSourceFactory: async (options) => {
-            const source = await db.adapters.createTypeormDataSource(options!);
-            return source.initialize();
-          },
+          useFactory: () => source.options,
+          dataSourceFactory: async () => source,
         }),
         CrayModule.forRoot(TEST_CRAY_OPTIONS),
       ],
@@ -78,5 +115,52 @@ describe('Cray module database-backed e2e', () => {
     release();
     await expect(first).resolves.toEqual({ status: 'PENDING' });
     expect(executions).toBe(1);
+  });
+});
+
+describe('Host AppModule database wiring e2e', () => {
+  let moduleFixture: TestingModule;
+
+  beforeAll(async () => {
+    process.env.DATABASE_URL = 'postgresql://unused-by-overridden-test-source';
+    process.env.DATABASE_SSL = 'false';
+    process.env.CRAY_COLLECTION_API_KEY = 'test_collection_key';
+    process.env.CRAY_DISBURSEMENT_API_KEY = 'test_disbursement_key';
+    process.env.CRAY_REQUEST_SIGNING_ENABLED = 'false';
+    process.env.CRAY_WEBHOOK_KEYS = 'test_webhook_key_1234';
+    process.env.CRAY_DATA_ENCRYPTION_KEY =
+      'test-data-encryption-key-at-least-32-bytes';
+
+    const source = await createTestDataSource();
+    moduleFixture = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(DataSource)
+      .useValue(source)
+      .compile();
+    await moduleFixture.init();
+  });
+
+  afterAll(async () => {
+    if (moduleFixture) await moduleFixture.close();
+  });
+
+  it('constructs the host app, DataSource, and Cray repositories together', async () => {
+    expect(moduleFixture.get(DataSource).isInitialized).toBe(true);
+    expect(moduleFixture.get(AppController).getHello()).toBe('Hello World!');
+
+    const repo = moduleFixture.get<Repository<CrayRefund>>(
+      getRepositoryToken(CrayRefund),
+    );
+    await repo.save(
+      repo.create({
+        reference: 'host_app_payment_1',
+        providerReference: 'host_app_refund_1',
+        status: 'PENDING',
+      }),
+    );
+    await expect(
+      repo.findOneByOrFail({ reference: 'host_app_payment_1' }),
+    ).resolves.toEqual(
+      expect.objectContaining({ providerReference: 'host_app_refund_1' }),
+    );
   });
 });
