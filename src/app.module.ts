@@ -18,7 +18,9 @@ import { CrayModule } from './modules/cray/cray.module';
         collectionApiKey: config.get<string>('CRAY_COLLECTION_API_KEY', ''),
         disbursementApiKey: config.get<string>('CRAY_DISBURSEMENT_API_KEY', ''),
         requestSigningEnabled:
-          config.get<string>('CRAY_REQUEST_SIGNING_ENABLED', 'false').toLowerCase() === 'true',
+          config
+            .get<string>('CRAY_REQUEST_SIGNING_ENABLED', 'false')
+            .toLowerCase() === 'true',
         signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID', ''),
         signingPrivateKey: config.get<string>('CRAY_SIGNING_PRIVATE_KEY', ''),
         webhookKeys: config
