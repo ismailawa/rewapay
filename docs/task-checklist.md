@@ -131,5 +131,6 @@
   - [x] Encrypt account numbers and persist only redacted webhook payloads.
   - [x] Run scheduled reconciliation/balance snapshots and provide a security backfill migration.
   - [x] Align `.env.example` with scoped Bearer keys, optional signing, rotating webhook keys, encryption, and `DATABASE_URL`.
+  - [x] Provide Docker Compose PostgreSQL infrastructure with readiness checks, persistent storage, and required UUID extension initialization.
   - [x] Pass unit, build, and database-backed E2E verification.
   - [ ] Run the opt-in live sandbox contract suite with externally supplied scoped credentials, webhook keys, and signing credentials when enabled.

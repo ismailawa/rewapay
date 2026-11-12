@@ -18,6 +18,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "infra:up": "docker compose up -d --wait postgres",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f postgres",
     "migration:run": "typeorm-ts-node-esm migration:run -- -d src/database/cray-data-source.ts",
     "migration:revert": "typeorm-ts-node-esm migration:revert -- -d src/database/cray-data-source.ts"
   },

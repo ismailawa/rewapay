@@ -62,13 +62,17 @@ Only `POST /cray/webhooks` is registered as a public controller. Bank, payout, c
 
 ## Database and verification
 
-Run the security backfill migration with `CRAY_DATA_ENCRYPTION_KEY` set:
+Start the local PostgreSQL infrastructure, then run the security backfill migration with `CRAY_DATA_ENCRYPTION_KEY` set:
 
 ```bash
+cp .env.example .env
+npm run infra:up
 npm run migration:run
 npm test -- --runInBand
 npm run build
 npm run test:e2e -- --runInBand
 ```
+
+`compose.yaml` starts PostgreSQL 16 with a persistent named volume, readiness health check, and the UUID extension required by the migration. Use `npm run infra:logs` to follow database logs and `npm run infra:down` to stop the container without deleting its data.
 
 The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires real test-scoped Cray keys; a registered signing key is additionally required when the sandbox merchant has signing enabled.
