@@ -78,7 +78,12 @@ export interface CreateCorporateAccountInput {
   rcNumber: string;
   phone: string;
   email: string;
-  businessType: 'COMPANY' | 'BUSINESS_NAME' | 'INCORPORATED_TRUSTEES' | 'LIMITED_PARTNERSHIP' | 'LIMITED_LIABILITY_PARTNERSHIP';
+  businessType:
+    | 'COMPANY'
+    | 'BUSINESS_NAME'
+    | 'INCORPORATED_TRUSTEES'
+    | 'LIMITED_PARTNERSHIP'
+    | 'LIMITED_LIABILITY_PARTNERSHIP';
   businessName?: string;
   tin?: string;
 }
@@ -244,14 +249,20 @@ export interface RefundCompletedEvent {
 // -------------------------------------------------------------
 
 export interface ICrayService {
-  createVirtualAccount(input: CreateVirtualAccountInput): Promise<VirtualAccountResult>;
+  createVirtualAccount(
+    input: CreateVirtualAccountInput,
+  ): Promise<VirtualAccountResult>;
   getVirtualAccount(customerId: string): Promise<VirtualAccountDetails | null>;
 
-  createFundingSession(input: CreateFundingSessionInput): Promise<FundingSessionResult>;
+  createFundingSession(
+    input: CreateFundingSessionInput,
+  ): Promise<FundingSessionResult>;
   getFundingStatus(reference: string): Promise<FundingStatusResult>;
 
   listBanks(): Promise<BankItem[]>;
-  validateBankAccount(input: ValidateBankAccountInput): Promise<ValidateBankAccountResult>;
+  validateBankAccount(
+    input: ValidateBankAccountInput,
+  ): Promise<ValidateBankAccountResult>;
   initiateTransfer(input: InitiateTransferInput): Promise<TransferResult>;
   getTransferStatus(reference: string): Promise<TransferStatusResult>;
 

@@ -1,8 +1,19 @@
-import { Body, Get, HttpCode, HttpStatus, Param, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { CheckoutService } from './checkout.service';
 import { InitializeCheckoutDto } from './dto/initialize-checkout.dto';
-import { FundingSessionResult, FundingStatusResult } from '../interfaces/cray.interfaces';
+import {
+  FundingSessionResult,
+  FundingStatusResult,
+} from '../interfaces/cray.interfaces';
 import { CrayAuthorizedControllerBase } from '../controllers';
 
 /**

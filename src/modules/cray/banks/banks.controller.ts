@@ -1,14 +1,11 @@
-import {
-  Body,
-  Get,
-  Post,
-  Query,
-  Req,
-} from '@nestjs/common';
+import { Body, Get, Post, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { BanksService } from './banks.service';
 import { ValidateBankAccountDto } from './dto/validate-bank-account.dto';
-import { BankItem, ValidateBankAccountResult } from '../interfaces/cray.interfaces';
+import {
+  BankItem,
+  ValidateBankAccountResult,
+} from '../interfaces/cray.interfaces';
 import { CrayAuthorizedControllerBase } from '../controllers';
 
 export abstract class CrayBanksControllerBase extends CrayAuthorizedControllerBase {

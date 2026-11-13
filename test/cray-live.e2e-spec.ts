@@ -66,9 +66,9 @@ export function buildLiveOptions(
     requestSigningEnabled,
     signingPrivateKey: requestSigningEnabled
       ? requiredEnvironment(environment, 'CRAY_SIGNING_PRIVATE_KEY').replace(
-          /\\n/g,
-          '\n',
-        )
+        /\\n/g,
+        '\n',
+      )
       : '',
     signingKeyId: requestSigningEnabled
       ? requiredEnvironment(environment, 'CRAY_SIGNING_KEY_ID')
@@ -86,7 +86,7 @@ export function buildLiveOptions(
     ),
     collectionPayoutRpm: Number(
       environment.CRAY_COLLECTION_PAYOUT_RPM ||
-        CRAY_DEFAULT_COLLECTION_PAYOUT_RPM,
+      CRAY_DEFAULT_COLLECTION_PAYOUT_RPM,
     ),
   };
 }

@@ -1,9 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
-import { crayConfig, CrayModuleOptions, CrayModuleAsyncOptions } from './config/cray.config';
+import {
+  crayConfig,
+  CrayModuleOptions,
+  CrayModuleAsyncOptions,
+} from './config/cray.config';
 import { CRAY_MODULE_OPTIONS, CRAY_SERVICE } from './config/cray.constants';
 import { CrayApiClient } from './clients/cray-api.client';
 import { CrayService } from './cray.service';
@@ -150,7 +156,10 @@ export class CrayModule {
   static forRootAsync(options: CrayModuleAsyncOptions): DynamicModule {
     const asyncOptionsProvider: Provider = {
       provide: CRAY_MODULE_OPTIONS,
-      useFactory: async (defaultConfig: ConfigType<typeof crayConfig>, ...injected: any[]) => {
+      useFactory: async (
+        defaultConfig: ConfigType<typeof crayConfig>,
+        ...injected: any[]
+      ) => {
         let customOptions: Partial<CrayModuleOptions> = {};
         if (options.useFactory) {
           customOptions = await options.useFactory(...injected);

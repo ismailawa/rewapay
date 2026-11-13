@@ -1,14 +1,11 @@
-import {
-  Body,
-  Get,
-  NotFoundException,
-  Param,
-  Post,
-  Req,
-} from '@nestjs/common';
+import { Body, Get, NotFoundException, Param, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { AccountsService } from './accounts.service';
-import type { CreateVirtualAccountInput, VirtualAccountDetails, VirtualAccountResult } from '../interfaces/cray.interfaces';
+import type {
+  CreateVirtualAccountInput,
+  VirtualAccountDetails,
+  VirtualAccountResult,
+} from '../interfaces/cray.interfaces';
 import { CrayAuthorizedControllerBase } from '../controllers';
 
 export abstract class CrayAccountsControllerBase extends CrayAuthorizedControllerBase {
@@ -35,7 +32,9 @@ export abstract class CrayAccountsControllerBase extends CrayAuthorizedControlle
     await this.assertAuthorized(request, 'accounts.read', { customerId });
     const account = await this.accountsService.getVirtualAccount(customerId);
     if (!account) {
-      throw new NotFoundException(`Virtual account not found for customer ${customerId}`);
+      throw new NotFoundException(
+        `Virtual account not found for customer ${customerId}`,
+      );
     }
     return account;
   }

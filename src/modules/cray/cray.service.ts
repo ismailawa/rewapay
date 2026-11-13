@@ -69,10 +69,18 @@ export class CrayService implements ICrayService {
   async createFundingSession(
     input: CreateFundingSessionInput,
   ): Promise<FundingSessionResult> {
-    if (!input.customerId || !input.walletId || !input.amount || !input.reference || !input.customer?.name || !input.customer?.email) {
+    if (
+      !input.customerId ||
+      !input.walletId ||
+      !input.amount ||
+      !input.reference ||
+      !input.customer?.name ||
+      !input.customer?.email
+    ) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
-        message: 'customerId, walletId, amount, reference, and real customer details are required.',
+        message:
+          'customerId, walletId, amount, reference, and real customer details are required.',
         retryable: false,
       });
     }
@@ -122,7 +130,9 @@ export class CrayService implements ICrayService {
   // 4. Disbursements / Transfers (Section 3.4)
   // =====================================================================
 
-  async initiateTransfer(input: InitiateTransferInput): Promise<TransferResult> {
+  async initiateTransfer(
+    input: InitiateTransferInput,
+  ): Promise<TransferResult> {
     if (!input.reference || !input.amount || !input.destination) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
