@@ -16,7 +16,7 @@ import { CrayWebhookPayloadDto } from './dto/webhook-payload.dto';
 import { WebhooksVerifier } from './webhooks.verifier';
 import { MoneyUtil } from '../utils/money.util';
 
-export interface WebhookContext { keyHint?: string; clientIp?: string; rawBody?: string }
+export interface WebhookContext { clientIp?: string; rawBody?: string }
 
 @Injectable()
 export class WebhooksService {
@@ -32,60 +32,93 @@ export class WebhooksService {
   ) {}
 
   async processWebhook(payload: CrayWebhookPayloadDto, context: WebhookContext = {}): Promise<{ received: boolean; eventId: string; status: string }> {
-    if (!payload?.event || !payload.data || !payload.hash) {
-      throw new CrayException({ code: CrayErrorCode.INVALID_INPUT, message: 'Webhook event, data, and hash are required.', retryable: false });
+    if (!payload?.event || !payload.data) {
+      throw new CrayException({ code: CrayErrorCode.INVALID_INPUT, message: 'Webhook event and data are required.', retryable: false });
     }
 
-    const key = this.selectWebhookKey(context.keyHint);
-    if (!key || !this.verifier.verifyHmacSignature(payload.data, payload.hash, key, context.keyHint)) {
+    const isUnsignedLegacyEvent = payload.event === 'payin' || payload.event === 'payout';
+    if (
+      !isUnsignedLegacyEvent &&
+      !this.verifier.verifyHmacSignature(
+        payload.data,
+        payload.hash,
+        this.options.apiKey,
+      )
+    ) {
       throw new CrayException({ code: CrayErrorCode.AUTHENTICATION_ERROR, message: 'Webhook signature verification failed.', retryable: false });
     }
 
     const fingerprint = crypto.createHash('sha256')
-      .update(`${payload.event}\n${JSON.stringify(payload.data)}\n${payload.hash}`)
+      .update(`${payload.event}\n${JSON.stringify(payload.data)}\n${payload.hash || ''}`)
       .digest('hex');
     const duplicate = await this.findByFingerprint(fingerprint);
     if (duplicate) return { received: true, eventId: duplicate.eventId, status: 'DUPLICATE' };
 
     const data = payload.data;
     const eventId = (data.event_id as string) || fingerprint;
-    const reference = (data.customer_reference as string) || (data.reference as string) || (data.transaction_reference as string) || '';
+    let eventData = data;
     let status = 'PROCESSED';
+    let verified = !isUnsignedLegacyEvent;
 
     const isKnown = payload.event.startsWith('collection.') || payload.event === 'payin' || payload.event === 'payout';
     if (!isKnown) status = 'IGNORED';
-    else {
-      const authoritative = await this.isAuthoritativeMatch(payload.event, data);
-      if (authoritative) await this.emitTerminalEvent(eventId, payload.event, data, reference);
-      else status = 'VERIFIED_PENDING';
+    else if (isUnsignedLegacyEvent) {
+      const authoritative = await this.getAuthoritativeData(payload.event, data);
+      verified = authoritative !== null;
+      if (authoritative) {
+        eventData = {
+          ...data,
+          ...authoritative,
+          customer_reference:
+            authoritative.merchant_reference ||
+            authoritative.customer_reference ||
+            data.customer_reference,
+          reference: data.reference || authoritative.reference,
+        };
+      }
+      if (!verified) status = 'PENDING_VERIFICATION';
+    }
+
+    const reference =
+      (eventData.customer_reference as string) ||
+      (eventData.reference as string) ||
+      (eventData.transaction_reference as string) ||
+      '';
+    if (isKnown) {
+      if (verified) await this.emitTerminalEvent(eventId, payload.event, eventData, reference);
+      else status = 'PENDING_VERIFICATION';
     }
 
     await this.persist({
       eventId, fingerprint, eventType: payload.event, reference,
-      signature: payload.hash, sanitizedPayload: this.redact(payload), verified: true,
+      signature: payload.hash, sanitizedPayload: this.redact(payload), verified,
       status, receivedAt: new Date(), processedAt: new Date(),
     });
     return { received: true, eventId, status };
   }
 
-  private selectWebhookKey(hint?: string): string | undefined {
-    if (!hint) return this.options.webhookKeys.length === 1 ? this.options.webhookKeys[0] : undefined;
-    return this.options.webhookKeys.find((key) => key.slice(-4) === hint);
-  }
-
-  private async isAuthoritativeMatch(event: string, data: Record<string, unknown>): Promise<boolean> {
-    if (event !== 'payout' && event !== 'payin') return true;
+  private async getAuthoritativeData(
+    event: string,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown> | null> {
     const providerReference = (data.reference as string) || (data.transaction_reference as string);
-    if (!providerReference) return false;
+    if (!providerReference) return null;
     try {
-      const path = event === 'payout' ? `/payout/requery/${providerReference}` : `/query/${providerReference}`;
+      const path = event === 'payout'
+        ? `/api/payout/requery/${providerReference}`
+        : `/api/query/${providerReference}`;
       const response = await this.apiClient.get<Record<string, unknown>>(path);
-      const providerStatus = String((response.data as Record<string, unknown> | undefined)?.status || '').toLowerCase();
+      const providerData =
+        (response.data as Record<string, unknown> | undefined) || {};
+      const providerStatus = String(providerData.status || '').toLowerCase();
       const webhookStatus = String(data.status || '').toLowerCase();
-      return providerStatus === webhookStatus || (providerStatus === 'approved' && webhookStatus === 'successful');
+      const matches =
+        providerStatus === webhookStatus ||
+        (providerStatus === 'approved' && webhookStatus === 'successful');
+      return matches ? providerData : null;
     } catch (error) {
       this.logger.warn(`Authoritative webhook requery failed: ${(error as Error).message}`);
-      return false;
+      return null;
     }
   }
 

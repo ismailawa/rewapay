@@ -3,7 +3,7 @@ import { WebhooksVerifier } from './webhooks.verifier';
 
 describe('WebhooksVerifier', () => {
   let verifier: WebhooksVerifier;
-  const secret = 'cray_wh_secret_key_1234';
+  const secret = 'lrs_test_merchant_secret_key';
 
   beforeEach(() => {
     verifier = new WebhooksVerifier();
@@ -25,18 +25,6 @@ describe('WebhooksVerifier', () => {
       const validHash = computeValidHash(dataObj, secret);
       const result = verifier.verifyHmacSignature(dataObj, validHash, secret);
       expect(result).toBe(true);
-    });
-
-    it('should return true when Cray-Webhook-Key hint matches the last 4 chars', () => {
-      const validHash = computeValidHash(dataObj, secret);
-      const result = verifier.verifyHmacSignature(dataObj, validHash, secret, '1234');
-      expect(result).toBe(true);
-    });
-
-    it('should return false when Cray-Webhook-Key hint does not match secret ending', () => {
-      const validHash = computeValidHash(dataObj, secret);
-      const result = verifier.verifyHmacSignature(dataObj, validHash, secret, '9999');
-      expect(result).toBe(false);
     });
 
     it('should return false for altered data (tamper defense)', () => {
@@ -81,4 +69,3 @@ describe('WebhooksVerifier', () => {
     });
   });
 });
-

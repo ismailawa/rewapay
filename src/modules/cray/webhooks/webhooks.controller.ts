@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { WebhooksService } from './webhooks.service';
 import { CrayWebhookPayloadDto } from './dto/webhook-payload.dto';
@@ -7,7 +7,7 @@ import { CrayWebhookPayloadDto } from './dto/webhook-payload.dto';
  * Controller for receiving Cray webhooks.
  *
  * Endpoint: POST /cray/webhooks
- * Docs: docs/cray-api-v2-docs.md § Webhooks
+ * Docs: docs/cray-api-v1-docs.md § Webhooks
  */
 @Controller('cray/webhooks')
 export class WebhooksController {
@@ -17,7 +17,6 @@ export class WebhooksController {
   @HttpCode(HttpStatus.OK)
   async handleWebhook(
     @Body() payload: CrayWebhookPayloadDto,
-    @Headers('cray-webhook-key') keyHint: string | undefined,
     @Req() req: Request,
   ): Promise<{ received: boolean; eventId?: string }> {
     const rawForwarded = req.headers['x-forwarded-for'];
@@ -30,11 +29,9 @@ export class WebhooksController {
     const clientIp = forwardedIp || req.ip || req.socket?.remoteAddress;
 
     const result = await this.webhooksService.processWebhook(payload, {
-      keyHint,
       clientIp,
     });
 
     return { received: result.received, eventId: result.eventId };
   }
 }
-

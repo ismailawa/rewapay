@@ -43,13 +43,11 @@ describe('WebhooksController', () => {
       socket: { remoteAddress: '127.0.0.1' },
     } as unknown as Request;
 
-    const result = await controller.handleWebhook(payload, '1234', mockRequest);
+    const result = await controller.handleWebhook(payload, mockRequest);
 
     expect(result).toEqual({ received: true, eventId: 'evt_test_123' });
     expect(service.processWebhook).toHaveBeenCalledWith(payload, {
-      keyHint: '1234',
       clientIp: '192.168.1.10',
     });
   });
 });
-

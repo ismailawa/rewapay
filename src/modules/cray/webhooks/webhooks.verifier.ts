@@ -8,34 +8,21 @@ export class WebhooksVerifier {
   /**
    * Verifies the HMAC-SHA256 signature for Cray collection webhooks.
    *
-   * Formula per docs/cray-api-v2-docs.md § Webhook Security:
-   *   base64( HMAC-SHA256( JSON of "data" object, <webhook-scope-key> ) )
+   * Formula per docs/cray-api-v1-docs.md § Webhook Security:
+   *   base64( HMAC-SHA256( JSON of "data" object, <merchant-secret-key> ) )
    *
    * @param data The "data" object from the webhook body
    * @param expectedHash The "hash" value from the webhook body
-   * @param secret The webhook signing key
-   * @param keyHint Optional Cray-Webhook-Key header (last 4 chars of key)
+   * @param secret The v1 merchant Secret Key
    */
   verifyHmacSignature(
     data: Record<string, unknown>,
     expectedHash: string | undefined,
     secret: string | undefined,
-    keyHint?: string,
   ): boolean {
     if (!expectedHash || !secret) {
       this.logger.warn('Missing expectedHash or webhook secret for HMAC verification');
       return false;
-    }
-
-    // If keyHint (last 4 chars) is provided, verify secret matches hint
-    if (keyHint && secret.length >= 4) {
-      const secretLast4 = secret.slice(-4);
-      if (secretLast4 !== keyHint) {
-        this.logger.warn(
-          `Cray-Webhook-Key hint '${keyHint}' does not match secret ending '${secretLast4}'`,
-        );
-        return false;
-      }
     }
 
     try {

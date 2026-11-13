@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataType, newDb } from 'pg-mem';
-import { createHmac, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import { CrayModule } from '../src/modules/cray/cray.module';
 import { CrayService } from '../src/modules/cray/cray.service';
@@ -133,7 +133,7 @@ describe('CrayModule full database-backed e2e', () => {
           account_name:
             (request.account_name as string) || (request.full_name as string),
           bank:
-            path === '/corporate-accounts/create' ? 'Wema Bank' : 'Cray Bank',
+            path === '/api/v2/corporate-accounts/create' ? 'Wema Bank' : 'Cray Bank',
           sort_code: '035',
         },
       });
@@ -150,7 +150,7 @@ describe('CrayModule full database-backed e2e', () => {
           firstName: 'Bloc',
           lastName: 'Customer',
         },
-        endpoint: '/virtual-accounts/create',
+        endpoint: '/api/virtual-accounts/create',
         payload: {
           provider: 'Bloc',
           virtual_account_type: 'Permanent',
@@ -169,7 +169,7 @@ describe('CrayModule full database-backed e2e', () => {
           accountType: 'Permanent' as const,
           bvn: '12345678901',
         },
-        endpoint: '/virtual-accounts/create',
+        endpoint: '/api/virtual-accounts/create',
         payload: {
           provider: 'palmpay',
           account_type: 'Permanent',
@@ -186,7 +186,7 @@ describe('CrayModule full database-backed e2e', () => {
           accountType: 'onetime' as const,
           amount: '2500.00',
         },
-        endpoint: '/virtual-accounts/create',
+        endpoint: '/api/virtual-accounts/create',
         payload: {
           provider: 'Bloc',
           account_type: 'onetime',
@@ -204,7 +204,7 @@ describe('CrayModule full database-backed e2e', () => {
           returnUrl: 'https://merchant.example/return',
           orderExpireSeconds: 3600,
         },
-        endpoint: '/virtual-accounts/create',
+        endpoint: '/api/virtual-accounts/create',
         payload: {
           provider: 'palmpay',
           account_type: 'onetime',
@@ -225,7 +225,7 @@ describe('CrayModule full database-backed e2e', () => {
           businessType: 'COMPANY' as const,
           businessName: 'Cray Trading',
         },
-        endpoint: '/corporate-accounts/create',
+        endpoint: '/api/v2/corporate-accounts/create',
         payload: {
           full_name: 'Cray Trading Limited',
           rc_number: 'RC123456',
@@ -283,7 +283,7 @@ describe('CrayModule full database-backed e2e', () => {
       accountName: 'Ada Lovelace',
       refId: 'validation-ref-1',
     });
-    expect(api.post).toHaveBeenCalledWith('/payout/accounts/validate', {
+    expect(api.post).toHaveBeenCalledWith('/api/payout/accounts/validate', {
       account_number: '0123456789',
       bank_code: '044',
     });
@@ -301,7 +301,7 @@ describe('CrayModule full database-backed e2e', () => {
 
   it('runs card, transfer, and mobile-money hosted checkout lifecycles and persists terminal state', async () => {
     api.post.mockImplementation((path, payload) => {
-      expect(path).toBe('/checkout/initialize');
+      expect(path).toBe('/api/checkout/initialize');
       const reference = (payload as Record<string, unknown>)
         .reference as string;
       return Promise.resolve({
@@ -331,7 +331,7 @@ describe('CrayModule full database-backed e2e', () => {
         expiresAt: undefined,
       });
       expect(api.post).toHaveBeenLastCalledWith(
-        '/checkout/initialize',
+        '/api/checkout/initialize',
         expect.objectContaining({
           amount: '1000.00',
           reference,
@@ -364,7 +364,7 @@ describe('CrayModule full database-backed e2e', () => {
         }),
       );
       expect(api.get).toHaveBeenCalledWith(
-        `/checkout/query/PAY-funding-${method}`,
+        `/api/checkout/query/PAY-funding-${method}`,
       );
     }
 
@@ -405,11 +405,11 @@ describe('CrayModule full database-backed e2e', () => {
 
     expect(api.post.mock.calls).toEqual([
       [
-        '/payout/accounts/validate',
+        '/api/payout/accounts/validate',
         { account_number: '1234567890', bank_code: '035' },
       ],
       [
-        '/payout/disburse',
+        '/api/payout/disburse',
         {
           customer_reference: 'merchant-transfer-reference',
           account_number: '1234567890',
@@ -431,7 +431,7 @@ describe('CrayModule full database-backed e2e', () => {
     ).resolves.toEqual(
       expect.objectContaining({ status: CrayStatus.SUCCESSFUL, amount: 5000 }),
     );
-    expect(api.get).toHaveBeenCalledWith('/payout/requery/cray-transfer-id');
+    expect(api.get).toHaveBeenCalledWith('/api/payout/requery/cray-transfer-id');
 
     const repo = moduleFixture.get<Repository<CrayTransfer>>(
       getRepositoryToken(CrayTransfer),
@@ -470,8 +470,8 @@ describe('CrayModule full database-backed e2e', () => {
       status: CrayStatus.PROCESSING,
     });
     expect(api.post.mock.calls).toEqual([
-      ['/refund/initiate', { reference: 'payment-full' }],
-      ['/refund/initiate', { reference: 'payment-partial', amount: '250.00' }],
+      ['/api/v2/refund/initiate', { reference: 'payment-full' }],
+      ['/api/v2/refund/initiate', { reference: 'payment-partial', amount: '250.00' }],
     ]);
 
     api.get.mockResolvedValueOnce({
@@ -488,7 +488,7 @@ describe('CrayModule full database-backed e2e', () => {
         amount: '250.00',
       }),
     );
-    expect(api.get).toHaveBeenCalledWith('/refund/query/payment-partial');
+    expect(api.get).toHaveBeenCalledWith('/api/v2/refund/query/payment-partial');
 
     const repo = moduleFixture.get<Repository<CrayRefund>>(
       getRepositoryToken(CrayRefund),
@@ -512,7 +512,7 @@ describe('CrayModule full database-backed e2e', () => {
       reference: 'collection-1',
       status: 'successful',
     });
-    expect(api.get).toHaveBeenLastCalledWith('/query/collection-1');
+    expect(api.get).toHaveBeenLastCalledWith('/api/query/collection-1');
 
     api.post.mockResolvedValueOnce({
       data: { transaction_id: 'card-transaction-1', status: 'pending' },
@@ -521,7 +521,7 @@ describe('CrayModule full database-backed e2e', () => {
       transaction_id: 'card-transaction-1',
       status: 'pending',
     });
-    expect(api.post).toHaveBeenCalledWith('/charge', {
+    expect(api.post).toHaveBeenCalledWith('/api/v2/charge', {
       transaction_id: 'card-transaction-1',
     });
 
@@ -579,7 +579,7 @@ describe('CrayModule full database-backed e2e', () => {
         stuckCount: 0,
       }),
     );
-    expect(api.get).toHaveBeenLastCalledWith('/checkout/query/RECON-PAY-CODE');
+    expect(api.get).toHaveBeenLastCalledWith('/api/checkout/query/RECON-PAY-CODE');
     const reconRepo = moduleFixture.get<Repository<CrayReconciliationRecord>>(
       getRepositoryToken(CrayReconciliationRecord),
     );
@@ -593,14 +593,9 @@ describe('CrayModule full database-backed e2e', () => {
     );
   });
 
-  it('verifies rotating-key webhooks, permits state transitions, emits only terminal events, redacts, and deduplicates', async () => {
+  it('authoritatively verifies unsigned v1 payins, permits state transitions, emits only terminal events, redacts, and deduplicates', async () => {
     const emitted: unknown[] = [];
     eventEmitter.on('funding.confirmed', (event) => emitted.push(event));
-
-    const sign = (data: Record<string, unknown>) =>
-      createHmac('sha256', TEST_CRAY_OPTIONS.webhookKeys[0])
-        .update(JSON.stringify(data))
-        .digest('base64');
 
     const pendingData = {
       event_id: 'event-pending',
@@ -613,10 +608,7 @@ describe('CrayModule full database-backed e2e', () => {
     };
     api.get.mockResolvedValueOnce({ data: { status: 'pending' } });
     await expect(
-      webhooks.processWebhook(
-        { event: 'payin', data: pendingData, hash: sign(pendingData) },
-        { keyHint: '1234' },
-      ),
+      webhooks.processWebhook({ event: 'payin', data: pendingData }),
     ).resolves.toEqual({
       received: true,
       eventId: 'event-pending',
@@ -634,17 +626,16 @@ describe('CrayModule full database-backed e2e', () => {
     const successfulPayload = {
       event: 'payin',
       data: successfulData,
-      hash: sign(successfulData),
     };
     api.get.mockResolvedValueOnce({ data: { status: 'successful' } });
     await expect(
-      webhooks.processWebhook(successfulPayload, { keyHint: '1234' }),
+      webhooks.processWebhook(successfulPayload),
     ).resolves.toEqual({
       received: true,
       eventId: 'event-successful',
       status: 'PROCESSED',
     });
-    expect(api.get).toHaveBeenLastCalledWith('/query/provider-pay-in-1');
+    expect(api.get).toHaveBeenLastCalledWith('/api/query/provider-pay-in-1');
     expect(emitted).toEqual([
       expect.objectContaining({
         eventId: 'event-successful',
@@ -655,7 +646,7 @@ describe('CrayModule full database-backed e2e', () => {
     ]);
 
     await expect(
-      webhooks.processWebhook(successfulPayload, { keyHint: '1234' }),
+      webhooks.processWebhook(successfulPayload),
     ).resolves.toEqual({
       received: true,
       eventId: 'event-successful',

@@ -1,6 +1,5 @@
 import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import * as crypto from 'crypto';
 import { CrayService } from './cray.service';
 import { AccountsService } from './accounts/accounts.service';
 import { BanksService } from './banks/banks.service';
@@ -16,14 +15,11 @@ import { CRAY_MODULE_OPTIONS } from './config/cray.constants';
 import { TEST_CRAY_OPTIONS } from './testing/test-options';
 import { CrayStatus } from './enums/cray.enums';
 
-describe('Cray v2 in-process acceptance', () => {
+describe('Cray v1 in-process acceptance', () => {
   let facade: CrayService;
   let webhooks: WebhooksService;
   let api: jest.Mocked<CrayApiClient>;
   let emitter: EventEmitter2;
-  const webhookKey = TEST_CRAY_OPTIONS.webhookKeys[0];
-  const sign = (data: Record<string, unknown>) => crypto.createHmac('sha256', webhookKey).update(JSON.stringify(data)).digest('base64');
-
   beforeEach(async () => {
     const module = await Test.createTestingModule({ providers: [
       CrayService, AccountsService, BanksService, TransfersService, CheckoutService,
@@ -55,13 +51,13 @@ describe('Cray v2 in-process acceptance', () => {
       .mockResolvedValueOnce({ success: true, data: { reference: 'CRAY_PAYOUT_1', status: 'pending' } });
     const initiated = await facade.initiateTransfer({ walletId: 'w1', amount: '50.00', reference: 'merchant_payout_1', destination: { accountNumber: '0123456789', bankCode: '000013', accountName: 'Jane Doe' } });
     expect(initiated).toEqual({ transferId: 'CRAY_PAYOUT_1', status: CrayStatus.PENDING });
-    expect(api.post).toHaveBeenNthCalledWith(1, '/payout/accounts/validate', { account_number: '0123456789', bank_code: '000013' });
+    expect(api.post).toHaveBeenNthCalledWith(1, '/api/payout/accounts/validate', { account_number: '0123456789', bank_code: '000013' });
 
     api.get.mockResolvedValueOnce({ data: { status: 'approved' } });
     const listener = jest.fn();
     emitter.on('transfer.completed', listener);
     const data = { customer_reference: 'merchant_payout_1', reference: 'CRAY_PAYOUT_1', amount: '50.00', currency: 'NGN', status: 'Successful' };
-    await webhooks.processWebhook({ event: 'payout', data, hash: sign(data) }, { keyHint: webhookKey.slice(-4) });
+    await webhooks.processWebhook({ event: 'payout', data });
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ reference: 'merchant_payout_1', transferId: 'CRAY_PAYOUT_1' }));
   });
 
@@ -78,6 +74,6 @@ describe('Cray v2 in-process acceptance', () => {
       refundId: 'REFUND_FULL_1',
       status: CrayStatus.PENDING,
     });
-    expect(api.post).toHaveBeenCalledWith('/refund/initiate', { reference: 'PAYMENT_FULL_1' });
+    expect(api.post).toHaveBeenCalledWith('/api/v2/refund/initiate', { reference: 'PAYMENT_FULL_1' });
   });
 });
