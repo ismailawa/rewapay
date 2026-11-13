@@ -44,8 +44,8 @@ export function buildLiveOptions(
   environment: NodeJS.ProcessEnv = process.env,
 ): CrayModuleOptions {
   const crayEnvironment = environment.CRAY_ENVIRONMENT?.trim();
-  if (crayEnvironment !== 'production') {
-    throw new Error('Live E2E requires CRAY_ENVIRONMENT=production.');
+  if (crayEnvironment !== 'staging') {
+    throw new Error('Live E2E requires CRAY_ENVIRONMENT=staging.');
   }
 
   const baseUrl = (
@@ -94,15 +94,15 @@ export function buildLiveOptions(
 
 describe('Cray live E2E environment contract', () => {
   const required = {
-    CRAY_ENVIRONMENT: 'production',
-    CRAY_API_KEY: 'production_merchant_api_key',
+    CRAY_ENVIRONMENT: 'staging',
+    CRAY_API_KEY: 'staging_merchant_api_key',
     CRAY_DATA_ENCRYPTION_KEY: 'test-encryption-key-at-least-32-bytes',
   };
 
-  it('derives the v1 production URL when CRAY_BASE_URL is omitted', () => {
+  it('uses staging configuration with the v1 production URL', () => {
     expect(buildLiveOptions(required)).toEqual(
       expect.objectContaining({
-        environment: 'production',
+        environment: 'staging',
         baseUrl: CRAY_DEFAULT_PRODUCTION_BASE_URL,
         apiKey: required.CRAY_API_KEY,
         dataEncryptionKey: required.CRAY_DATA_ENCRYPTION_KEY,
@@ -126,10 +126,10 @@ describe('Cray live E2E environment contract', () => {
     ).toThrow('CRAY_DATA_ENCRYPTION_KEY');
   });
 
-  it('rejects non-production environments and gateway overrides', () => {
+  it('rejects non-staging environments and gateway overrides', () => {
     expect(() =>
-      buildLiveOptions({ ...required, CRAY_ENVIRONMENT: 'staging' }),
-    ).toThrow('CRAY_ENVIRONMENT=production');
+      buildLiveOptions({ ...required, CRAY_ENVIRONMENT: 'production' }),
+    ).toThrow('CRAY_ENVIRONMENT=staging');
 
     expect(() =>
       buildLiveOptions({
@@ -163,7 +163,7 @@ describe('Cray live E2E environment contract', () => {
   });
 });
 
-describeLiveReadOnly('Cray production live contract e2e', () => {
+describeLiveReadOnly('Cray staging credentials on production gateway e2e', () => {
   let client: CrayApiClient;
 
   beforeAll(() => {
@@ -188,7 +188,7 @@ describeLiveReadOnly('Cray production live contract e2e', () => {
 });
 
 describeLiveMutation(
-  'Cray production virtual-account live contract e2e',
+  'Cray staging virtual-account contract on production gateway e2e',
   () => {
     let client: CrayApiClient;
 

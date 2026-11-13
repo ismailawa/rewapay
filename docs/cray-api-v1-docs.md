@@ -13,7 +13,7 @@ This snapshot records the v1 wire contract used by the implementation. The offic
 - Every implemented server-side request sends `Authorization: Bearer <merchant_api_key>`.
 - The official `crayfi` Node SDK v1.0.5 calls this value `CRAY_API_KEY` and uses it for the same ConnectRamp gateways and `/api` routes implemented here.
 - `CRAYFI_PUBLIC_KEY` and `CRAYFI_SECRET_KEY` apply to separate payment-initialization/verification endpoints outside this module's scope. They are not required for balance, virtual accounts, payouts, hosted checkout, queries, or refunds.
-- RewaPay maps the active-environment merchant API-key value to `CRAY_API_KEY`; it does not support legacy environment aliases. Cray directed RewaPay to use the production gateway for live contract checks.
+- RewaPay maps the staging merchant API-key value to `CRAY_API_KEY`; it does not support legacy environment aliases. Cray directed RewaPay to keep the integration configuration in staging while overriding the live-contract base URL to the production gateway.
 
 ## Request signing
 

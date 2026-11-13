@@ -8,7 +8,7 @@ Cray v1 uses one merchant API key for every server-side call implemented here an
 
 ```dotenv
 CRAY_ENVIRONMENT=staging
-CRAY_BASE_URL=https://dev-gateman.v3.connectramp.com
+CRAY_BASE_URL=https://pay.connectramp.com
 CRAY_API_KEY=replace_with_staging_merchant_api_key
 CRAY_REQUEST_SIGNING_ENABLED=false
 # Required only when signing is enabled:
@@ -20,6 +20,8 @@ DATABASE_URL=postgresql://...
 
 The module fails during startup if the v1 merchant API key or encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Signed `collection.*` webhooks use the same merchant API key; unsigned legacy `payin` and `payout` events are confirmed through authoritative API requery.
 
+For the current Cray-provided setup, keep the environment and merchant credentials in staging while explicitly overriding only `CRAY_BASE_URL` to `https://pay.connectramp.com`. This is intentional; the environment label does not select the URL when an explicit base URL is supplied.
+
 `CRAYFI_PUBLIC_KEY` and `CRAYFI_SECRET_KEY` are credentials for Cray payment-initialization/verification endpoints outside this module's implemented product scope. `CRAYFI_MERCHANT_KEY` is not read as a separate runtime variable: place the staging merchant API-key value in `CRAY_API_KEY`.
 
 ## Registration
@@ -28,7 +30,7 @@ The host application must configure TypeORM before importing `CrayModule`.
 
 ```ts
 CrayModule.forRoot({
-  environment: 'production',
+  environment: 'staging',
   baseUrl: 'https://pay.connectramp.com',
   apiKey: process.env.CRAY_API_KEY!,
   requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED === 'true',
@@ -77,13 +79,13 @@ The local database is published on host port `5433` to avoid collisions with a s
 
 The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires a real v1 staging merchant API key; a registered signing key is additionally required when the sandbox merchant has signing enabled.
 
-The normal live suite is read-only and production-guarded:
+The normal live suite is read-only. It requires staging configuration while pinning the provider URL to the production gateway:
 
 ```bash
 npm run test:e2e:live
 ```
 
-Virtual-account creation is a production mutation and has a separate explicit opt-in. This command creates a permanent Bloc account with a fresh reference on every run:
+Virtual-account creation has a separate explicit opt-in. This command uses the same staging configuration and production URL, and creates a permanent Bloc account with a fresh reference on every run:
 
 ```bash
 npm run test:e2e:live:virtual-account
