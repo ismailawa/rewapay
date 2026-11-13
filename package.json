@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:e2e:live": "RUN_CRAY_LIVE_E2E=true CRAY_ENVIRONMENT=production CRAY_BASE_URL=https://pay.connectramp.com jest --config ./test/jest-e2e.json --runInBand test/cray-live.e2e-spec.ts",
+    "test:e2e:live:virtual-account": "RUN_CRAY_LIVE_E2E=true RUN_CRAY_LIVE_MUTATION_E2E=true CRAY_ENVIRONMENT=production CRAY_BASE_URL=https://pay.connectramp.com jest --config ./test/jest-e2e.json --runInBand test/cray-live.e2e-spec.ts",
     "infra:up": "docker compose up -d --wait postgres",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f postgres",

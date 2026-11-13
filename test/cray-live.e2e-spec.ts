@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomUUID } from 'crypto';
 import { CrayApiClient } from '../src/modules/cray/clients/cray-api.client';
 import { CrayModuleOptions } from '../src/modules/cray/config/cray.config';
 import {
@@ -14,8 +15,19 @@ interface CrayEnvelope {
   data?: unknown;
 }
 
+interface CrayVirtualAccountData {
+  account_number?: string;
+  accountNumber?: string;
+  account_name?: string;
+  accountName?: string;
+}
+
 const liveEnabled = process.env.RUN_CRAY_LIVE_E2E === 'true';
-const describeLive = liveEnabled ? describe : describe.skip;
+const liveMutationEnabled =
+  liveEnabled && process.env.RUN_CRAY_LIVE_MUTATION_E2E === 'true';
+const describeLiveReadOnly =
+  liveEnabled && !liveMutationEnabled ? describe : describe.skip;
+const describeLiveMutation = liveMutationEnabled ? describe : describe.skip;
 
 function requiredEnvironment(
   environment: NodeJS.ProcessEnv,
@@ -151,7 +163,7 @@ describe('Cray live E2E environment contract', () => {
   });
 });
 
-describeLive('Cray production live contract e2e', () => {
+describeLiveReadOnly('Cray production live contract e2e', () => {
   let client: CrayApiClient;
 
   beforeAll(() => {
@@ -174,3 +186,41 @@ describeLive('Cray production live contract e2e', () => {
     expect(Array.isArray(response.data)).toBe(true);
   });
 });
+
+describeLiveMutation(
+  'Cray production virtual-account live contract e2e',
+  () => {
+    let client: CrayApiClient;
+
+    beforeAll(() => {
+      client = new CrayApiClient(buildLiveOptions());
+    });
+
+    it('creates a permanent individual Bloc virtual account', async () => {
+      const response = await client.post<CrayEnvelope>(
+        '/api/virtual-accounts/create',
+        {
+          type: 'individual',
+          virtual_account_type: 'Permanent',
+          currency: 'NGN',
+          provider: 'Bloc',
+          account_name: 'Prin Test',
+          customer_email: 'pess@example.com',
+          reference: randomUUID(),
+          first_name: 'Prin',
+          last_name: 'Test',
+          date_of_birth: '1982-10-23',
+        },
+      );
+
+      const data = response.data as CrayVirtualAccountData | undefined;
+      const accountNumber = data?.account_number ?? data?.accountNumber;
+      const accountName = data?.account_name ?? data?.accountName;
+
+      expect(typeof accountNumber).toBe('string');
+      expect(accountNumber?.length).toBeGreaterThan(0);
+      expect(typeof accountName).toBe('string');
+      expect(accountName?.length).toBeGreaterThan(0);
+    });
+  },
+);

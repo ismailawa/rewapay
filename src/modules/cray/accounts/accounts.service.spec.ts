@@ -23,12 +23,12 @@ describe('AccountsService Cray v1 contracts', () => {
 
   it('builds the exact Bloc permanent payload and decrypts stored account details', async () => {
     api.post.mockResolvedValue(response);
-    const input = { customerId: 'cust_1', provider: 'Bloc' as const, accountType: 'Permanent' as const, accountName: 'Jane', email: 'jane@example.com', firstName: 'Jane', lastName: 'Doe' };
+    const input = { customerId: 'cust_1', provider: 'Bloc' as const, accountType: 'Permanent' as const, accountName: 'Prin Test', email: 'pess@example.com', firstName: 'Prin', lastName: 'Test', dateOfBirth: '1982-10-23' };
     const created = await service.createVirtualAccount(input);
     expect(created.accountNumber).toBe('0123456789');
-    expect(api.post).toHaveBeenCalledWith('/api/virtual-accounts/create', expect.objectContaining({
-      provider: 'Bloc', type: 'individual', virtual_account_type: 'Permanent', account_name: 'Jane', customer_email: 'jane@example.com', first_name: 'Jane', last_name: 'Doe',
-    }));
+    expect(api.post).toHaveBeenCalledWith('/api/virtual-accounts/create', {
+      provider: 'Bloc', type: 'individual', virtual_account_type: 'Permanent', currency: 'NGN', account_name: 'Prin Test', customer_email: 'pess@example.com', reference: expect.any(String), first_name: 'Prin', last_name: 'Test', date_of_birth: '1982-10-23',
+    });
     expect((await service.getVirtualAccount('cust_1'))?.accountNumber).toBe('0123456789');
   });
 

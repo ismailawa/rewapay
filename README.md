@@ -76,3 +76,15 @@ npm run test:e2e -- --runInBand
 The local database is published on host port `5433` to avoid collisions with a system PostgreSQL instance on the conventional `5432` port.
 
 The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires a real v1 staging merchant API key; a registered signing key is additionally required when the sandbox merchant has signing enabled.
+
+The normal live suite is read-only and production-guarded:
+
+```bash
+npm run test:e2e:live
+```
+
+Virtual-account creation is a production mutation and has a separate explicit opt-in. This command creates a permanent Bloc account with a fresh reference on every run:
+
+```bash
+npm run test:e2e:live:virtual-account
+```

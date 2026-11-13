@@ -148,6 +148,7 @@
   - [x] Keep `ICrayService`, persistence, financial idempotency, ambiguous-timeout quarantine, encryption, and redaction behavior intact.
   - [x] Update unit, acceptance, E2E, live-contract, README, status, and workflow documentation; identify required, conditional, and defaulted v1 variables in `.env.example`.
   - [x] Keep host and live E2E configuration aligned with required variables, conditional signing, and an immutable production-only gateway guard per Cray's direction.
+  - [x] Add a separately gated production live contract test for permanent Bloc virtual-account creation using the documented payload and a fresh reference per run.
   - [x] Pass unit, build, and database-backed E2E verification.
   - [x] Verify against the official `crayfi` SDK that implemented v1 routes use one Bearer merchant API key and do not require payment public/verification keys.
   - [ ] Pass the complete opt-in v1 production contract suite; balance authentication succeeds, but Cray must enable the payout module before the bank-directory check can pass.
