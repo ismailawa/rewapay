@@ -1,6 +1,6 @@
-# Cray v2 Integration Reference
+# Cray v1 Integration Reference
 
-The implementation is validated against [`cray-api-v2-docs.md`](./cray-api-v2-docs.md), sourced from [Cray v2](https://docs.crayfi.com/v2).
+The active implementation is validated against [`cray-api-v1-docs.md`](./cray-api-v1-docs.md), sourced from [Cray v1](https://docs.crayfi.com/v1). The v2 snapshot is retained only as historical migration context and is not a runtime contract.
 
 ## Implemented provider contracts
 

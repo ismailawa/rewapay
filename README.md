@@ -1,26 +1,24 @@
 # `@rewapay/cray`
 
-NestJS integration for the signed [Cray Finance v2 API](https://docs.crayfi.com/v2). It supports provider-specific virtual accounts, hosted checkout, NGN payouts, refunds, verified webhooks, balance snapshots, and reconciliation.
+NestJS integration for the signed [Cray Finance v1 API](https://docs.crayfi.com/v1). It supports provider-specific virtual accounts, hosted checkout, NGN payouts, refunds, verified webhooks, balance snapshots, and reconciliation.
 
 ## Required configuration
 
-Cray Secret Keys carry exactly one scope. Collection and disbursement calls therefore require different Bearer keys. Request signing is optional and adds `X-Signature` on top of Bearer authentication; encrypted sensitive-field storage remains mandatory.
+Cray v1 uses one merchant Secret Key for every server-side call and collection-webhook HMAC verification. Request signing is optional and adds `X-Signature` on top of Bearer authentication; encrypted sensitive-field storage remains mandatory.
 
 ```dotenv
 CRAY_ENVIRONMENT=staging
-CRAY_BASE_URL=https://sandbox.crayfi.io
-CRAY_COLLECTION_API_KEY=collection_scoped_key
-CRAY_DISBURSEMENT_API_KEY=disbursement_scoped_key
+CRAY_BASE_URL=https://dev-gateman.v3.connectramp.com
+CRAY_API_KEY=lrs_replace_with_merchant_secret_key
 CRAY_REQUEST_SIGNING_ENABLED=false
 # Required only when signing is enabled:
 CRAY_SIGNING_KEY_ID=
 CRAY_SIGNING_PRIVATE_KEY=
-CRAY_WEBHOOK_KEYS=webhook_scope_key_current,webhook_scope_key_previous
 CRAY_DATA_ENCRYPTION_KEY=secret_from_your_key_manager
 DATABASE_URL=postgresql://...
 ```
 
-The module always fails during startup if either scoped Bearer key, all webhook keys, or the encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Webhook keys support rotation; Cray's `Cray-Webhook-Key` hint selects a key by its final four characters.
+The module fails during startup if the v1 Secret Key or encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Signed `collection.*` webhooks use the same Secret Key; unsigned legacy `payin` and `payout` events are confirmed through authoritative API requery.
 
 ## Registration
 
@@ -29,13 +27,11 @@ The host application must configure TypeORM before importing `CrayModule`.
 ```ts
 CrayModule.forRoot({
   environment: 'production',
-  baseUrl: 'https://pay.crayfi.io',
-  collectionApiKey: process.env.CRAY_COLLECTION_API_KEY!,
-  disbursementApiKey: process.env.CRAY_DISBURSEMENT_API_KEY!,
+  baseUrl: 'https://pay.connectramp.com',
+  apiKey: process.env.CRAY_API_KEY!,
   requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED === 'true',
   signingKeyId: process.env.CRAY_SIGNING_KEY_ID || '',
   signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY || '',
-  webhookKeys: process.env.CRAY_WEBHOOK_KEYS!.split(','),
   dataEncryptionKey: process.env.CRAY_DATA_ENCRYPTION_KEY!,
   httpTimeoutMs: 15_000,
   maxRetries: 3,
@@ -77,4 +73,4 @@ npm run test:e2e -- --runInBand
 
 The local database is published on host port `5433` to avoid collisions with a system PostgreSQL instance on the conventional `5432` port.
 
-The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires real test-scoped Cray keys; a registered signing key is additionally required when the sandbox merchant has signing enabled.
+The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires a real v1 test Secret Key; a registered signing key is additionally required when the sandbox merchant has signing enabled.

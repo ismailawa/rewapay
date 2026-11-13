@@ -1,20 +1,20 @@
 ---
 name: cray-integration-workflow
 description: >-
-  Enforces using docs/cray-api-v2-docs.md for API endpoint references before implementing any feature,
+  Enforces using docs/cray-api-v1-docs.md for API endpoint references before implementing any feature,
   tracking progress via STATUS.md, and validating tasks against docs/task-checklist.md.
 ---
 
 # Cray Integration Workflow & Governance Skill
 
-This skill enforces strict adherence to verified Cray v2 API specifications, task tracking, and acceptance criteria throughout the development of the RewaPay Cray integration module.
+This skill enforces strict adherence to verified Cray v1 API specifications, task tracking, and acceptance criteria throughout the development of the RewaPay Cray integration module.
 
 ---
 
 ## 1. Mandatory Pre-Implementation Check
 
 Before writing or editing any code for a task:
-1. **Consult Official API Docs:** Open and search [cray-api-v2-docs.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/cray-api-v2-docs.md) for the exact endpoint, request method, URL path, payload properties, authentication scopes, and response fixtures. Never guess endpoints, parameter names, or casing.
+1. **Consult Official API Docs:** Open and search [cray-api-v1-docs.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/cray-api-v1-docs.md) for the exact endpoint, request method, URL path, payload properties, authentication, and response fixtures. Never guess endpoints, parameter names, or casing.
 2. **Consult Task Roadmap:** Check [STATUS.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/STATUS.md) to confirm the current task, open design decisions, and status.
 3. **Review Acceptance Criteria:** Review the specific task item in [task-checklist.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/task-checklist.md).
 
@@ -43,4 +43,3 @@ After writing code for a task:
    - Check off acceptance criteria in [task-checklist.md](file:///Users/ismailawa/Documents/Projects/rewapay-cray/docs/task-checklist.md).
 4. **Git Checkpoint:** Commit the task implementation with clear conventional commit messages.
 5. **Report to User:** Present the completed deliverables, test outcomes, and wait for user confirmation before starting the next task.
-
