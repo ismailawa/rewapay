@@ -5,7 +5,6 @@ import {
   CRAY_DEFAULT_COLLECTION_PAYOUT_RPM,
   CRAY_DEFAULT_GENERAL_RPM,
   CRAY_DEFAULT_HTTP_TIMEOUT_MS,
-  CRAY_DEFAULT_PRODUCTION_BASE_URL,
   CRAY_DEFAULT_STAGING_BASE_URL,
 } from '../src/modules/cray/config/cray.constants';
 
@@ -36,24 +35,16 @@ export function buildLiveOptions(
   environment: NodeJS.ProcessEnv = process.env,
 ): CrayModuleOptions {
   const crayEnvironment = environment.CRAY_ENVIRONMENT?.trim() || 'staging';
-  if (crayEnvironment !== 'staging' && crayEnvironment !== 'production') {
-    throw new Error(
-      'CRAY_ENVIRONMENT must be staging or production for live E2E.',
-    );
+  if (crayEnvironment !== 'staging') {
+    throw new Error('Live E2E only supports CRAY_ENVIRONMENT=staging.');
   }
 
-  const defaultBaseUrl =
-    crayEnvironment === 'production'
-      ? CRAY_DEFAULT_PRODUCTION_BASE_URL
-      : CRAY_DEFAULT_STAGING_BASE_URL;
-  const baseUrl = (environment.CRAY_BASE_URL?.trim() || defaultBaseUrl).replace(
-    /\/$/,
-    '',
-  );
-  const allowProduction = environment.CRAY_LIVE_ALLOW_PRODUCTION === 'true';
-  if (baseUrl !== CRAY_DEFAULT_STAGING_BASE_URL && !allowProduction) {
+  const baseUrl = (
+    environment.CRAY_BASE_URL?.trim() || CRAY_DEFAULT_STAGING_BASE_URL
+  ).replace(/\/$/, '');
+  if (baseUrl !== CRAY_DEFAULT_STAGING_BASE_URL) {
     throw new Error(
-      'Live E2E is restricted to the v1 ConnectRamp staging gateway. Set CRAY_LIVE_ALLOW_PRODUCTION=true only for an explicitly approved production check.',
+      `Live E2E only supports the Cray v1 staging gateway: ${CRAY_DEFAULT_STAGING_BASE_URL}.`,
     );
   }
 
@@ -121,18 +112,17 @@ describe('Cray live E2E environment contract', () => {
     ).toThrow('CRAY_DATA_ENCRYPTION_KEY');
   });
 
-  it('rejects production unless it is explicitly enabled', () => {
+  it('rejects production and non-staging gateway overrides', () => {
     expect(() =>
       buildLiveOptions({ ...required, CRAY_ENVIRONMENT: 'production' }),
-    ).toThrow('Live E2E is restricted');
+    ).toThrow('CRAY_ENVIRONMENT=staging');
 
-    expect(
+    expect(() =>
       buildLiveOptions({
         ...required,
-        CRAY_ENVIRONMENT: 'production',
-        CRAY_LIVE_ALLOW_PRODUCTION: 'true',
-      }).baseUrl,
-    ).toBe(CRAY_DEFAULT_PRODUCTION_BASE_URL);
+        CRAY_BASE_URL: 'https://pay.connectramp.com',
+      }),
+    ).toThrow('only supports the Cray v1 staging gateway');
   });
 
   it('requires signing credentials only when ES256 signing is enabled', () => {
