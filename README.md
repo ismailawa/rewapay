@@ -85,6 +85,8 @@ The normal live suite is read-only. It requires staging configuration while pinn
 npm run test:e2e:live
 ```
 
+Live checks allow the provider request to reach its configured HTTP timeout instead of Jest's five-second default. Override the test allowance with `CRAY_LIVE_E2E_TIMEOUT_MS` when needed; it defaults to `CRAY_HTTP_TIMEOUT_MS + 5000`.
+
 Virtual-account creation has a separate explicit opt-in. This command uses the same staging configuration and production URL, and creates a permanent Bloc account with a fresh reference on every run:
 
 ```bash

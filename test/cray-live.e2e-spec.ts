@@ -25,6 +25,11 @@ interface CrayVirtualAccountData {
 const liveEnabled = process.env.RUN_CRAY_LIVE_E2E === 'true';
 const liveMutationEnabled =
   liveEnabled && process.env.RUN_CRAY_LIVE_MUTATION_E2E === 'true';
+const configuredHttpTimeoutMs =
+  Number(process.env.CRAY_HTTP_TIMEOUT_MS) || CRAY_DEFAULT_HTTP_TIMEOUT_MS;
+const liveTestTimeoutMs =
+  Number(process.env.CRAY_LIVE_E2E_TIMEOUT_MS) ||
+  configuredHttpTimeoutMs + 5_000;
 const describeLiveReadOnly =
   liveEnabled && !liveMutationEnabled ? describe : describe.skip;
 const describeLiveMutation = liveMutationEnabled ? describe : describe.skip;
@@ -170,21 +175,29 @@ describeLiveReadOnly('Cray staging credentials on production gateway e2e', () =>
     client = new CrayApiClient(buildLiveOptions());
   });
 
-  it('authenticates with the v1 merchant API key and fetches wallet balances', async () => {
-    const response = await client.get<CrayEnvelope>('/api/balance');
+  it(
+    'authenticates with the v1 merchant API key and fetches wallet balances',
+    async () => {
+      const response = await client.get<CrayEnvelope>('/api/balance');
 
-    expect(response.data).toBeDefined();
-    expect(response.data).not.toBeNull();
-    expect(
-      Array.isArray(response.data) || typeof response.data === 'object',
-    ).toBe(true);
-  });
+      expect(response.data).toBeDefined();
+      expect(response.data).not.toBeNull();
+      expect(
+        Array.isArray(response.data) || typeof response.data === 'object',
+      ).toBe(true);
+    },
+    liveTestTimeoutMs,
+  );
 
-  it('uses the same v1 merchant API key to fetch payout banks', async () => {
-    const response = await client.get<CrayEnvelope>('/api/payout/banks');
+  it(
+    'uses the same v1 merchant API key to fetch payout banks',
+    async () => {
+      const response = await client.get<CrayEnvelope>('/api/payout/banks');
 
-    expect(Array.isArray(response.data)).toBe(true);
-  });
+      expect(Array.isArray(response.data)).toBe(true);
+    },
+    liveTestTimeoutMs,
+  );
 });
 
 describeLiveMutation(
@@ -196,31 +209,35 @@ describeLiveMutation(
       client = new CrayApiClient(buildLiveOptions());
     });
 
-    it('creates a permanent individual Bloc virtual account', async () => {
-      const response = await client.post<CrayEnvelope>(
-        '/api/virtual-accounts/create',
-        {
-          type: 'individual',
-          virtual_account_type: 'Permanent',
-          currency: 'NGN',
-          provider: 'Bloc',
-          account_name: 'Prin Test',
-          customer_email: 'pess@example.com',
-          reference: randomUUID(),
-          first_name: 'Prin',
-          last_name: 'Test',
-          date_of_birth: '1982-10-23',
-        },
-      );
+    it(
+      'creates a permanent individual Bloc virtual account',
+      async () => {
+        const response = await client.post<CrayEnvelope>(
+          '/api/virtual-accounts/create',
+          {
+            type: 'individual',
+            virtual_account_type: 'Permanent',
+            currency: 'NGN',
+            provider: 'Bloc',
+            account_name: 'Prin Test',
+            customer_email: 'pess@example.com',
+            reference: randomUUID(),
+            first_name: 'Prin',
+            last_name: 'Test',
+            date_of_birth: '1982-10-23',
+          },
+        );
 
-      const data = response.data as CrayVirtualAccountData | undefined;
-      const accountNumber = data?.account_number ?? data?.accountNumber;
-      const accountName = data?.account_name ?? data?.accountName;
+        const data = response.data as CrayVirtualAccountData | undefined;
+        const accountNumber = data?.account_number ?? data?.accountNumber;
+        const accountName = data?.account_name ?? data?.accountName;
 
-      expect(typeof accountNumber).toBe('string');
-      expect(accountNumber?.length).toBeGreaterThan(0);
-      expect(typeof accountName).toBe('string');
-      expect(accountName?.length).toBeGreaterThan(0);
-    });
+        expect(typeof accountNumber).toBe('string');
+        expect(accountNumber?.length).toBeGreaterThan(0);
+        expect(typeof accountName).toBe('string');
+        expect(accountName?.length).toBeGreaterThan(0);
+      },
+      liveTestTimeoutMs,
+    );
   },
 );
