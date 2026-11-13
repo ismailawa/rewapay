@@ -141,6 +141,8 @@ export class ProtectedPaymentsHttpModule {}
 
 Register the subclass in the same host module that imports the configured dynamic `CrayModule`, or import a host wrapper module that re-exports that configured module. Do not import an unconfigured second copy merely to access its providers.
 
+This repository includes a compiling host example in [`src/app.controller.ts`](src/app.controller.ts): `AppCrayAccountsController` mounts the inherited account routes, applies `AppCustomerGuard`, and verifies that the requested customer belongs to the authenticated principal. Replace the example guard with the host application's JWT or session guard.
+
 The authorization policy must compare `context.resource.customerId` and `walletId` with the authenticated principal and enforce tenant/role ownership. Authentication alone is insufficient. Never trust caller-supplied customer or wallet IDs without this comparison; override a handler or write a host controller around `ICrayService` when identity must be derived rather than accepted.
 
 Authorization contexts deliberately exclude amounts, account numbers, BVN/NIN, card data, and raw bodies.

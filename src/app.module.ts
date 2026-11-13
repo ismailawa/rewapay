@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app.controller';
+import {
+  AppController,
+  AppCrayAccountsController,
+  AppCustomerGuard,
+} from './app.controller';
 import { AppService } from './app.service';
 import { CrayModule } from './modules/cray/cray.module';
 
@@ -41,7 +45,7 @@ import { CrayModule } from './modules/cray/cray.module';
       }),
     }),
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, AppCrayAccountsController],
+  providers: [AppService, AppCustomerGuard],
 })
 export class AppModule {}

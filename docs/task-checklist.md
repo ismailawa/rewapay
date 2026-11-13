@@ -182,4 +182,5 @@
   - [x] Keep collection HMAC and unsigned payin/payout authoritative verification after host webhook ingress checks.
   - [x] Document source installation, TypeORM/migration setup, facade injection, protected subclasses, ownership checks, validation, domain events, and explicit webhook registration.
   - [x] Prove former `/cray/*` routes return 404 by default and host routes require guards and authorization hooks.
+  - [x] Include a compiling host application example that mounts an inherited controller with a guard and customer-ownership authorization.
   - [x] Pass unit, build, and complete database/HTTP E2E verification.
