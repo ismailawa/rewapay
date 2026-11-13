@@ -155,3 +155,13 @@
   - [x] Pass unit, build, and database-backed E2E verification.
   - [x] Verify against the official `crayfi` SDK that implemented v1 routes use one Bearer merchant API key and do not require payment public/verification keys.
   - [x] Pass the complete read-only opt-in v1 contract suite using staging configuration on the production gateway; balance and bank-directory checks succeed.
+
+- [x] **Task 13: Full Cray v1 Module Audit**
+  - [x] Inventory every implemented route, authentication header, payload, response mapping, webhook path, reconciliation query, and live-contract fixture against `docs/cray-api-v1-docs.md`.
+  - [x] Requery payouts exclusively with Cray's provider transaction ID and URL-encode every dynamic provider path segment.
+  - [x] Enforce strict decimal-string checkout amounts and normalize persisted numeric values before returning facade results.
+  - [x] Serialize query arrays with explicit v1 indexes while preserving raw-plus, literal-plus, duplicate-scalar, sorting, and exact-body signing rules.
+  - [x] Require authoritative unsigned-webhook identity, status class, amount, and currency agreement before verification or terminal event emission.
+  - [x] Remove the obsolete webhook key hint from the public webhook DTO and retain exact-delivery deduplication and redaction.
+  - [x] Align active documentation and fixtures to the exact v1 routes while preserving historical v2 status and the migration filename/class.
+  - [x] Pass all unit/acceptance tests, the TypeScript build, database-backed E2E tests, and the read-only live Cray contract suite.

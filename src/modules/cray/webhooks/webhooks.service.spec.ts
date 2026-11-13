@@ -75,7 +75,11 @@ describe('WebhooksService', () => {
       status: 'Successful',
     };
     api.get.mockResolvedValue({
-      data: { status: 'approved', merchant_reference: 'merchant_1' },
+      data: {
+        status: 'approved',
+        amount: '500.00',
+        merchant_reference: 'merchant_1',
+      },
     });
     await service.processWebhook({ event: 'payout', data });
     expect(api.get).toHaveBeenCalledWith('/api/payout/requery/CRAY_TX_1');
@@ -84,6 +88,35 @@ describe('WebhooksService', () => {
       expect.objectContaining({
         reference: 'merchant_1',
         transferId: 'CRAY_TX_1',
+      }),
+    );
+  });
+
+  it('confirms an unsigned payin using its customer_reference', async () => {
+    const data = {
+      customer_reference: 'merchant payin/1',
+      amount: '125.00',
+      currency: 'NGN',
+      status: 'Successful',
+    };
+    api.get.mockResolvedValue({
+      data: {
+        customer_reference: 'merchant payin/1',
+        amount: '125.00',
+        currency: 'NGN',
+        status: 'approved',
+      },
+    });
+
+    const result = await service.processWebhook({ event: 'payin', data });
+
+    expect(result.status).toBe('PROCESSED');
+    expect(api.get).toHaveBeenCalledWith('/api/query/merchant%20payin%2F1');
+    expect(emitter.emit).toHaveBeenCalledWith(
+      'funding.confirmed',
+      expect.objectContaining({
+        reference: 'merchant payin/1',
+        amount: '125.00',
       }),
     );
   });
@@ -147,6 +180,28 @@ describe('WebhooksService', () => {
       ).memory.values(),
     );
     expect(records[0].verified).toBe(false);
+  });
+
+  it('keeps an unsigned payin pending when the authoritative amount differs', async () => {
+    const data = {
+      customer_reference: 'payin_amount_mismatch',
+      amount: '20.00',
+      currency: 'NGN',
+      status: 'Successful',
+    };
+    api.get.mockResolvedValue({
+      data: {
+        customer_reference: 'payin_amount_mismatch',
+        amount: '200.00',
+        currency: 'NGN',
+        status: 'approved',
+      },
+    });
+
+    const result = await service.processWebhook({ event: 'payin', data });
+
+    expect(result.status).toBe('PENDING_VERIFICATION');
+    expect(emitter.emit).not.toHaveBeenCalled();
   });
 
   it('persists a redacted payload instead of raw sensitive values', async () => {

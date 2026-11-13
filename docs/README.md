@@ -4,10 +4,11 @@ The active implementation is validated against [`cray-api-v1-docs.md`](./cray-ap
 
 ## Implemented provider contracts
 
-- Collection-scoped: `POST /virtual-accounts/create`, `POST /corporate-accounts/create`, hosted checkout initialize/query, `GET /query/{reference}`, `POST /charge`, `GET /balance`, and refund initiate/query.
-- Disbursement-scoped: bank directory, account validation, payout disbursement, and payout requery.
-- All implemented API calls use one Bearer merchant API key. Optional ES256 signing adds `X-Signature` over the five-line canonical request when enabled.
-- Webhooks use a webhook-scope API key, key-hint rotation, HMAC-SHA256 verification of the `data` object, exact-delivery fingerprinting, redacted persistence, and authoritative payout/payin requery.
+- Accounts and collections: `POST /api/virtual-accounts/create`, `POST /api/v2/corporate-accounts/create`, `POST /api/checkout/initialize`, `GET /api/checkout/query/{reference}`, `GET /api/query/{customer_reference}`, and `POST /api/v2/charge`.
+- Payouts: `GET /api/payout/banks`, `POST /api/payout/accounts/validate`, `POST /api/payout/disburse`, and `GET /api/payout/requery/{transaction_id}`.
+- Balance and refunds: `GET /api/balance`, `POST /api/v2/refund/initiate`, and `GET /api/v2/refund/query/{reference}`.
+- Every implemented provider call uses the same Bearer merchant API key. Optional ES256 signing adds `X-Signature` over the five-line canonical request when enabled.
+- `collection.*` webhooks use the merchant API key for HMAC-SHA256 verification of `JSON.stringify(data)`. Unsigned `payin` and `payout` notifications require authoritative requery before terminal events are emitted. Deliveries are fingerprinted and redacted before persistence.
 
 ## Safety behavior
 
@@ -16,7 +17,7 @@ The active implementation is validated against [`cray-api-v1-docs.md`](./cray-ap
 - Ambiguous financial calls stay unresolved and are never blindly replayed. Requery uses Cray's returned transaction ID only.
 - Account numbers are AES-256-GCM encrypted at rest with deterministic lookup hashes where lookup is required.
 - Reconciliation runs every five minutes; balance snapshots run hourly. Items without a provider transaction ID are escalated for manual review.
-- Full and partial refunds use `POST /refund/initiate`; status uses `GET /refund/query/{reference}`.
+- Full and partial refunds use `POST /api/v2/refund/initiate`; status uses `GET /api/v2/refund/query/{reference}`.
 
 ## Public module contract
 

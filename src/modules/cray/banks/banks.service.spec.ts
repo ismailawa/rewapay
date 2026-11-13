@@ -103,6 +103,16 @@ describe('BanksService', () => {
       }
     });
 
+    it('rejects a 10-character account number containing non-digits', async () => {
+      await expect(
+        service.validateBankAccount({
+          accountNumber: '01234A6789',
+          bankCode: '000013',
+        }),
+      ).rejects.toMatchObject({ code: CrayErrorCode.INVALID_INPUT });
+      expect(apiClient.post).not.toHaveBeenCalled();
+    });
+
     it('should successfully validate account and return account name with ref_id', async () => {
       apiClient.post.mockResolvedValueOnce({
         success: true,

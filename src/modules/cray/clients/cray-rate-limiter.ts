@@ -58,13 +58,14 @@ export class CrayRateLimiter {
 
   /**
    * Identifies traffic category based on URL path
-   * Endpoints like /payout/*, /checkout/*, /api/virtual-accounts/*, /api/v2/* belong to financial (collections/payouts)
+   * V1 payout, checkout, virtual-account, and documented /api/v2 routes use the financial bucket.
    */
   static categorizeEndpoint(path: string): TrafficCategory {
     const normalized = path.toLowerCase();
     if (
       normalized.includes('/payout') ||
       normalized.includes('/checkout') ||
+      normalized.includes('/api/query') ||
       normalized.includes('/virtual-accounts') ||
       normalized.includes('/api/v2') ||
       normalized.includes('/momo') ||

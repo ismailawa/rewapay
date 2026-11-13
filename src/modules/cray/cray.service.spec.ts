@@ -10,7 +10,7 @@ import { RefundsService } from './refunds/refunds.service';
 import { CrayStatus } from './enums/cray.enums';
 import { CrayException } from './interfaces/cray.interfaces';
 
-describe('CrayService v2 facade', () => {
+describe('CrayService v1 facade', () => {
   let service: CrayService;
   const accounts = { createVirtualAccount: jest.fn(), getVirtualAccount: jest.fn() };
   const banks = { listBanks: jest.fn(), validateBankAccount: jest.fn() };

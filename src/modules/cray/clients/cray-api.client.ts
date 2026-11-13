@@ -99,13 +99,13 @@ export class CrayApiClient {
     const method = (config.method || 'GET').toUpperCase();
     let pathWithQuery = url;
     if (config.params) {
-      const query = new URLSearchParams(config.params).toString();
+      const query = this.serializeParams(config.params);
       if (query) {
         pathWithQuery += (url.includes('?') ? '&' : '?') + query;
       }
     }
-    // Transmit the same normalized path/query bytes that are signed. This is
-    // especially important for literal '+' values, which must be sent as %2B.
+    // Transmit the same normalized path/query bytes that are signed. A raw
+    // form-encoded '+' becomes %20; an encoded literal plus (%2B) stays %2B.
     pathWithQuery = CraySigner.canonicalizePath(pathWithQuery);
     config.url = pathWithQuery;
     delete config.params;
@@ -179,6 +179,26 @@ export class CrayApiClient {
     }
 
     throw new Error('Unexpected retry loop termination');
+  }
+
+  private serializeParams(params: unknown): string {
+    if (params instanceof URLSearchParams) return params.toString();
+    if (!params || typeof params !== 'object') return '';
+
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(
+      params as Record<string, unknown>,
+    )) {
+      if (Array.isArray(value)) {
+        const arrayKey = key.endsWith('[]') ? key : `${key}[]`;
+        for (const item of value) {
+          query.append(arrayKey, item == null ? '' : String(item));
+        }
+      } else {
+        query.append(key, value == null ? '' : String(value));
+      }
+    }
+    return query.toString();
   }
 
   private validateConfiguration(): void {

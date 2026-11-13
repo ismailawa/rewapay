@@ -144,7 +144,7 @@ export class TransfersService {
       ),
       accountNumberLast4: input.destination.accountNumber.slice(-4),
       bankCode: input.destination.bankCode,
-      accountName: input.destination.accountName,
+      accountName: validated.accountName,
       refId,
       narration: input.narration || 'Payout',
       status: CrayStatus.INITIATED,
@@ -163,8 +163,7 @@ export class TransfersService {
       account_number: input.destination.accountNumber,
       bank_code: input.destination.bankCode,
       amount: input.amount,
-      narration: input.narration || 'Payout',
-      recipient_name: input.destination.accountName,
+      recipient_name: validated.accountName,
       ref_id: refId,
       currency: 'NGN',
     };
@@ -175,8 +174,9 @@ export class TransfersService {
         payload,
       );
 
-      const providerReference =
-        response?.data?.reference || response?.data?.merchant_reference || '';
+      // Cray v1 requery requires the provider transaction ID in data.reference.
+      // Never substitute the merchant reference: that would query the wrong key.
+      const providerReference = response?.data?.reference || '';
       const fee = response?.data?.charge
         ? response.data.charge.toString()
         : undefined;
@@ -242,7 +242,7 @@ export class TransfersService {
     if (isPending && transfer.providerTransferReference) {
       try {
         const requery = await this.apiClient.get<CrayRequeryResponse>(
-          `/api/payout/requery/${transfer.providerTransferReference}`,
+          `/api/payout/requery/${encodeURIComponent(transfer.providerTransferReference)}`,
         );
 
         const providerStatus = (requery?.data?.status || '').toLowerCase();
@@ -278,7 +278,7 @@ export class TransfersService {
 
     return {
       status: (transfer.status as CrayStatus) || CrayStatus.PENDING,
-      amount: transfer.amount,
+      amount: MoneyUtil.toDecimalString(transfer.amount),
       failureReason: transfer.failureMessageSanitized,
     };
   }

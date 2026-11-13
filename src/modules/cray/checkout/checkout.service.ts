@@ -80,12 +80,7 @@ export class CheckoutService {
       });
     }
 
-    let amount: string;
-    try {
-      amount = MoneyUtil.toDecimalString(dto.amount);
-    } catch {
-      amount = '';
-    }
+    const amount = dto.amount;
     if (!MoneyUtil.isValidAmountString(amount)) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
@@ -208,7 +203,7 @@ export class CheckoutService {
         // GET /api/checkout/query/{reference} — use our reference or Cray's payCode
         const queryRef = record.payCode || reference;
         const response = await this.apiClient.get<CrayCheckoutQueryResponse>(
-          `/api/checkout/query/${queryRef}`,
+          `/api/checkout/query/${encodeURIComponent(queryRef)}`,
         );
 
         const data = response?.data;
@@ -245,7 +240,7 @@ export class CheckoutService {
 
     return {
       status: (record.status as CrayStatus) || CrayStatus.PENDING,
-      amount: record.amount,
+      amount: MoneyUtil.toDecimalString(record.amount),
       confirmedAt: record.completedAt?.toISOString(),
     };
   }
@@ -265,7 +260,7 @@ export class CheckoutService {
     }
 
     const response = await this.apiClient.get<Record<string, unknown>>(
-      `/api/query/${reference}`,
+      `/api/query/${encodeURIComponent(reference)}`,
     );
     return (response?.data as Record<string, unknown>) || (response as Record<string, unknown>);
   }

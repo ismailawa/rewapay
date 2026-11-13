@@ -17,9 +17,10 @@ export class CheckoutCustomerDto {
  * Validated against docs/cray-api-v1-docs.md § Hosted Checkout
  */
 export class InitializeCheckoutDto {
-  /** Amount to collect in major units (e.g. 1000 for 1000 NGN) */
+  /** Strict major-unit decimal string (e.g. "1000.00" NGN). */
+  @IsString()
   @IsNotEmpty()
-  amount: number | string;
+  amount: string;
 
   /** ISO 4217 currency code (e.g. "NGN") */
   @IsString()

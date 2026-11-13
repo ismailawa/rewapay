@@ -50,7 +50,7 @@ export class RefundsService {
   async getStatus(reference: string): Promise<RefundStatusResult> {
     if (!reference) this.invalid('Refund reference is required.');
     const response = await this.apiClient.get<RefundResponse>(
-      `/api/v2/refund/query/${reference}`,
+      `/api/v2/refund/query/${encodeURIComponent(reference)}`,
     );
     const providerReference = response.data?.reference || reference;
     const status = this.mapStatus(response.data?.status);

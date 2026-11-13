@@ -360,7 +360,7 @@ describe('CrayModule full database-backed e2e', () => {
       await expect(cray.getFundingStatus(`funding-${method}`)).resolves.toEqual(
         expect.objectContaining({
           status: CrayStatus.SUCCESSFUL,
-          amount: 1000,
+          amount: '1000.00',
         }),
       );
       expect(api.get).toHaveBeenCalledWith(
@@ -415,7 +415,6 @@ describe('CrayModule full database-backed e2e', () => {
           account_number: '1234567890',
           bank_code: '035',
           amount: '5000.00',
-          narration: 'Payout',
           recipient_name: 'Katherine Johnson',
           ref_id: 'fresh-ref-id',
           currency: 'NGN',
@@ -429,7 +428,7 @@ describe('CrayModule full database-backed e2e', () => {
     await expect(
       cray.getTransferStatus('merchant-transfer-reference'),
     ).resolves.toEqual(
-      expect.objectContaining({ status: CrayStatus.SUCCESSFUL, amount: 5000 }),
+      expect.objectContaining({ status: CrayStatus.SUCCESSFUL, amount: '5000.00' }),
     );
     expect(api.get).toHaveBeenCalledWith('/api/payout/requery/cray-transfer-id');
 
@@ -606,7 +605,14 @@ describe('CrayModule full database-backed e2e', () => {
       currency: 'NGN',
       account_number: '0123456789',
     };
-    api.get.mockResolvedValueOnce({ data: { status: 'pending' } });
+    api.get.mockResolvedValueOnce({
+      data: {
+        customer_reference: 'merchant-pay-in-1',
+        status: 'pending',
+        amount: '700.00',
+        currency: 'NGN',
+      },
+    });
     await expect(
       webhooks.processWebhook({ event: 'payin', data: pendingData }),
     ).resolves.toEqual({
@@ -627,7 +633,14 @@ describe('CrayModule full database-backed e2e', () => {
       event: 'payin',
       data: successfulData,
     };
-    api.get.mockResolvedValueOnce({ data: { status: 'successful' } });
+    api.get.mockResolvedValueOnce({
+      data: {
+        customer_reference: 'merchant-pay-in-1',
+        status: 'successful',
+        amount: '700.00',
+        currency: 'NGN',
+      },
+    });
     await expect(
       webhooks.processWebhook(successfulPayload),
     ).resolves.toEqual({
@@ -635,7 +648,7 @@ describe('CrayModule full database-backed e2e', () => {
       eventId: 'event-successful',
       status: 'PROCESSED',
     });
-    expect(api.get).toHaveBeenLastCalledWith('/api/query/provider-pay-in-1');
+    expect(api.get).toHaveBeenLastCalledWith('/api/query/merchant-pay-in-1');
     expect(emitted).toEqual([
       expect.objectContaining({
         eventId: 'event-successful',

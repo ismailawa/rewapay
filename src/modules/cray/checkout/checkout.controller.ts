@@ -7,8 +7,8 @@ import { FundingSessionResult, FundingStatusResult } from '../interfaces/cray.in
  * REST controller for hosted checkout operations.
  *
  * Routes:
- *   POST /cray/checkout          → createCheckoutSession (wraps POST /checkout/initialize)
- *   GET  /cray/checkout/:ref     → getCheckoutStatus (wraps GET /checkout/query/{reference})
+ *   POST /cray/checkout          → createCheckoutSession (wraps POST /api/checkout/initialize)
+ *   GET  /cray/checkout/:ref     → getCheckoutStatus (wraps GET /api/checkout/query/{reference})
  */
 @Controller('cray/checkout')
 export class CheckoutController {
@@ -27,7 +27,7 @@ export class CheckoutController {
   }
 
   /**
-   * Queries any transaction / virtual account collection via GET /query/{reference}.
+   * Queries any transaction / virtual account collection via GET /api/query/{reference}.
    * GET /cray/checkout/query/:reference
    */
   @Get('query/:reference')
@@ -48,7 +48,7 @@ export class CheckoutController {
   /**
    * Queries the status of a checkout session.
    *
-   * Calls GET /checkout/query/{reference} on Cray if the session is still pending.
+   * Calls GET /api/checkout/query/{reference} on Cray if the session is still pending.
    * GET /cray/checkout/:reference
    */
   @Get(':reference')
@@ -56,4 +56,3 @@ export class CheckoutController {
     return this.checkoutService.getCheckoutStatus(reference);
   }
 }
-

@@ -53,7 +53,14 @@ describe('Cray v1 in-process acceptance', () => {
     expect(initiated).toEqual({ transferId: 'CRAY_PAYOUT_1', status: CrayStatus.PENDING });
     expect(api.post).toHaveBeenNthCalledWith(1, '/api/payout/accounts/validate', { account_number: '0123456789', bank_code: '000013' });
 
-    api.get.mockResolvedValueOnce({ data: { status: 'approved' } });
+    api.get.mockResolvedValueOnce({
+      data: {
+        status: 'approved',
+        amount: '50.00',
+        currency: 'NGN',
+        merchant_reference: 'merchant_payout_1',
+      },
+    });
     const listener = jest.fn();
     emitter.on('transfer.completed', listener);
     const data = { customer_reference: 'merchant_payout_1', reference: 'CRAY_PAYOUT_1', amount: '50.00', currency: 'NGN', status: 'Successful' };

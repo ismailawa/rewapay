@@ -9,7 +9,7 @@ describe('CheckoutService', () => {
   let apiClient: jest.Mocked<CrayApiClient>;
 
   const validDto = {
-    amount: 1000,
+    amount: '1000.00',
     currency: 'NGN',
     reference: 'checkout_ref_001',
     defaultPaymentMethod: 'transfer' as const,
@@ -150,8 +150,19 @@ describe('CheckoutService', () => {
 
     it('should reject invalid amount (zero)', async () => {
       await expect(
-        service.createCheckoutSession({ ...validDto, amount: 0, reference: 'checkout_zero' }),
+        service.createCheckoutSession({ ...validDto, amount: '0.00', reference: 'checkout_zero' }),
       ).rejects.toThrow(CrayException);
+    });
+
+    it('rejects numeric amounts instead of accepting floating-point input', async () => {
+      await expect(
+        service.createCheckoutSession({
+          ...validDto,
+          amount: 1000 as unknown as string,
+          reference: 'checkout_numeric_amount',
+        }),
+      ).rejects.toThrow(CrayException);
+      expect(apiClient.post).not.toHaveBeenCalled();
     });
   });
 

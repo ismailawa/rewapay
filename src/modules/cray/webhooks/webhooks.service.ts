@@ -73,7 +73,7 @@ export class WebhooksService {
             authoritative.merchant_reference ||
             authoritative.customer_reference ||
             data.customer_reference,
-          reference: data.reference || authoritative.reference,
+          reference: authoritative.reference || data.reference,
         };
       }
       if (!verified) status = 'PENDING_VERIFICATION';
@@ -101,25 +101,76 @@ export class WebhooksService {
     event: string,
     data: Record<string, unknown>,
   ): Promise<Record<string, unknown> | null> {
-    const providerReference = (data.reference as string) || (data.transaction_reference as string);
+    const providerReference = event === 'payout'
+      ? (data.reference as string) || (data.transaction_reference as string)
+      : (data.customer_reference as string) ||
+        (data.reference as string) ||
+        (data.transaction_reference as string);
     if (!providerReference) return null;
     try {
       const path = event === 'payout'
-        ? `/api/payout/requery/${providerReference}`
-        : `/api/query/${providerReference}`;
+        ? `/api/payout/requery/${encodeURIComponent(providerReference)}`
+        : `/api/query/${encodeURIComponent(providerReference)}`;
       const response = await this.apiClient.get<Record<string, unknown>>(path);
       const providerData =
         (response.data as Record<string, unknown> | undefined) || {};
       const providerStatus = String(providerData.status || '').toLowerCase();
       const webhookStatus = String(data.status || '').toLowerCase();
-      const matches =
-        providerStatus === webhookStatus ||
-        (providerStatus === 'approved' && webhookStatus === 'successful');
-      return matches ? providerData : null;
+      if (!providerStatus || !webhookStatus) return null;
+      if (this.statusClass(providerStatus) !== this.statusClass(webhookStatus)) {
+        return null;
+      }
+
+      const authoritativeMerchantReference = String(
+        providerData.merchant_reference || providerData.customer_reference || '',
+      );
+      const webhookMerchantReference = String(data.customer_reference || '');
+      if (
+        authoritativeMerchantReference &&
+        webhookMerchantReference &&
+        authoritativeMerchantReference !== webhookMerchantReference
+      ) {
+        return null;
+      }
+
+      if (data.amount !== undefined) {
+        if (providerData.amount === undefined) return null;
+        if (
+          MoneyUtil.toDecimalString(providerData.amount as string | number) !==
+          MoneyUtil.toDecimalString(data.amount as string | number)
+        ) {
+          return null;
+        }
+      }
+
+      const providerCurrency = String(providerData.currency || '').toUpperCase();
+      const webhookCurrency = String(data.currency || '').toUpperCase();
+      if (
+        providerCurrency &&
+        webhookCurrency &&
+        providerCurrency !== webhookCurrency
+      ) {
+        return null;
+      }
+
+      return providerData;
     } catch (error) {
       this.logger.warn(`Authoritative webhook requery failed: ${(error as Error).message}`);
       return null;
     }
+  }
+
+  private statusClass(status: string): string {
+    if (['successful', 'approved', 'completed'].includes(status)) {
+      return 'successful';
+    }
+    if (['failed', 'rejected', 'reversed', 'expired'].includes(status)) {
+      return 'failed';
+    }
+    if (['pending', 'processing', 'initiated'].includes(status)) {
+      return 'pending';
+    }
+    return status;
   }
 
   private async emitTerminalEvent(eventId: string, eventType: string, data: Record<string, unknown>, reference: string): Promise<void> {

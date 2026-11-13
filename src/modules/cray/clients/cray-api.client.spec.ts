@@ -135,6 +135,23 @@ describe('CrayApiClient', () => {
     }));
   });
 
+  it('serializes params arrays with explicit v1 indexes', async () => {
+    const client = new CrayApiClient(createOptions());
+    const requestSpy = jest
+      .spyOn(client.axios, 'request')
+      .mockResolvedValue({ data: {} } as never);
+
+    await client.get('/api/balance/', {
+      params: { currency: ['USD', 'NGN'], search: 'a+b' },
+    });
+
+    expect(requestSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/api/balance?currency%5B0%5D=USD&currency%5B1%5D=NGN&search=a%2Bb',
+      }),
+    );
+  });
+
   it('should reject incomplete security configuration at startup', () => {
     expect(() => new CrayApiClient(createOptions({ signingKeyId: '' }))).toThrow('signingKeyId');
     expect(() => new CrayApiClient(createOptions({

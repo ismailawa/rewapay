@@ -191,7 +191,7 @@ export class ReconciliationService {
         }
         try {
           const requeryRes = await this.apiClient.get<Record<string, unknown>>(
-            `/api/payout/requery/${transfer.providerTransferReference}`,
+            `/api/payout/requery/${encodeURIComponent(transfer.providerTransferReference)}`,
           );
           const rawStatus = (
             (requeryRes?.data as Record<string, unknown>)?.status || ''
@@ -260,7 +260,7 @@ export class ReconciliationService {
         try {
           const queryRef = checkout.payCode || checkout.reference;
           const requeryRes = await this.apiClient.get<Record<string, unknown>>(
-            `/api/checkout/query/${queryRef}`,
+            `/api/checkout/query/${encodeURIComponent(queryRef)}`,
           );
           const rawStatus = (
             (requeryRes?.data as Record<string, unknown>)?.status || ''

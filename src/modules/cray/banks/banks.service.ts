@@ -114,7 +114,7 @@ export class BanksService {
       });
     }
 
-    if (input.accountNumber.length !== 10) {
+    if (!/^\d{10}$/.test(input.accountNumber)) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
         message: 'Nigerian bank account numbers must be 10 digits',

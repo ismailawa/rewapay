@@ -6,8 +6,9 @@ describe('CrayRateLimiter', () => {
       expect(CrayRateLimiter.categorizeEndpoint('/api/payout/disburse')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/payout/accounts/validate')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/checkout/initialize')).toBe('financial');
+      expect(CrayRateLimiter.categorizeEndpoint('/api/query/merchant-reference')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/virtual-accounts/create')).toBe('financial');
-      expect(CrayRateLimiter.categorizeEndpoint('/api/v2/initiate')).toBe('financial');
+      expect(CrayRateLimiter.categorizeEndpoint('/api/v2/refund/initiate')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/v2/charge')).toBe('financial');
     });
 

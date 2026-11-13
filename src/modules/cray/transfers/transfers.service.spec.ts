@@ -140,6 +140,36 @@ describe('TransfersService', () => {
       );
     });
 
+    it('uses the freshly validated account name in the exact v1 payout payload', async () => {
+      banksService.validateBankAccount.mockResolvedValueOnce({
+        accountName: 'AUTHORITATIVE RECIPIENT',
+        refId: 'fresh_validation_ref',
+      });
+      apiClient.post.mockResolvedValueOnce({
+        success: true,
+        data: { reference: 'CRAY_TX_AUTHORITATIVE_NAME', status: 'pending' },
+      });
+
+      await service.initiateTransfer({
+        ...validTransferInput,
+        reference: 'authoritative_recipient_name',
+        destination: {
+          ...validTransferInput.destination,
+          accountName: 'STALE CALLER NAME',
+        },
+      });
+
+      expect(apiClient.post).toHaveBeenCalledWith('/api/payout/disburse', {
+        customer_reference: 'authoritative_recipient_name',
+        account_number: '0123456789',
+        bank_code: '000013',
+        amount: '500.00',
+        recipient_name: 'AUTHORITATIVE RECIPIENT',
+        ref_id: 'fresh_validation_ref',
+        currency: 'NGN',
+      });
+    });
+
     it('should enforce idempotency and return original result on duplicate reference without re-calling Cray', async () => {
       banksService.findBeneficiary.mockResolvedValue({
         id: 'ben_1',
@@ -208,6 +238,29 @@ describe('TransfersService', () => {
       const saved = await service.findByReference('ref_timeout_001');
       expect(saved?.status).toBe(CrayStatus.PENDING);
       expect(saved?.failureMessageSanitized).toContain('timed out');
+    });
+
+    it('never treats merchant_reference as the provider transaction ID', async () => {
+      apiClient.post.mockResolvedValueOnce({
+        success: true,
+        data: {
+          merchant_reference: 'merchant_only_reference',
+          status: 'pending',
+        },
+      });
+
+      const result = await service.initiateTransfer({
+        ...validTransferInput,
+        reference: 'missing_provider_transaction_id',
+      });
+      const saved = await service.findByReference(
+        'missing_provider_transaction_id',
+      );
+
+      expect(result.status).toBe(CrayStatus.PENDING);
+      expect(saved?.providerTransferReference).toBe('');
+      await service.getTransferStatus('missing_provider_transaction_id');
+      expect(apiClient.get).not.toHaveBeenCalled();
     });
 
     it('should throw CrayException and mark FAILED on definitive rejection (e.g. Insufficient funds)', async () => {

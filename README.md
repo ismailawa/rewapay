@@ -18,7 +18,7 @@ CRAY_DATA_ENCRYPTION_KEY=secret_from_your_key_manager
 DATABASE_URL=postgresql://...
 ```
 
-The module fails during startup if the v1 merchant API key or encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Signed `collection.*` webhooks use the same merchant API key; unsigned legacy `payin` and `payout` events are confirmed through authoritative API requery.
+The module fails during startup if the v1 merchant API key or encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Signed `collection.*` webhooks use the same merchant API key; unsigned v1 `payin` and `payout` events are confirmed through authoritative API requery.
 
 For the current Cray-provided setup, keep the environment and merchant credentials in staging while explicitly overriding only `CRAY_BASE_URL` to `https://pay.connectramp.com`. This is intentional; the environment label does not select the URL when an explicit base URL is supplied.
 
@@ -77,7 +77,7 @@ npm run test:e2e -- --runInBand
 
 The local database is published on host port `5433` to avoid collisions with a system PostgreSQL instance on the conventional `5432` port.
 
-The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires a real v1 staging merchant API key; a registered signing key is additionally required when the sandbox merchant has signing enabled.
+The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts historical webhook payloads, and creates refund persistence. Live contract verification requires the real v1 staging merchant API key configured against Cray's instructed production gateway; a registered signing key is additionally required when signing is enabled for that merchant.
 
 The normal live suite is read-only. It requires staging configuration while pinning the provider URL to the production gateway:
 

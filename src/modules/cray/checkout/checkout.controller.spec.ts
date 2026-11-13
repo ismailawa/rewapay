@@ -32,7 +32,7 @@ describe('CheckoutController', () => {
     });
 
     const result = await controller.createCheckoutSession({
-      amount: 500,
+      amount: '500.00',
       currency: 'NGN',
       reference: 'ctrl_ref_001',
       defaultPaymentMethod: 'transfer',
@@ -81,4 +81,3 @@ describe('CheckoutController', () => {
     expect(service.chargeCard).toHaveBeenCalledWith('TXN_123');
   });
 });
-

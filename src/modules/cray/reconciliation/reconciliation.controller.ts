@@ -7,7 +7,7 @@ import { CrayBalanceSnapshot } from '../entities/cray-balance-snapshot.entity';
  * Controller for platform balance lookups and manual reconciliation triggers.
  *
  * Routes:
- *   GET  /cray/balance               → getPlatformBalance (wraps GET /balance)
+ *   GET  /cray/balance               → getPlatformBalance (wraps GET /api/balance)
  *   POST /cray/balance/snapshot      → snapshotPlatformBalance
  *   POST /cray/reconciliation/run    → reconcilePendingTransactions
  */
@@ -17,7 +17,7 @@ export class ReconciliationController {
 
   /**
    * Fetches current platform wallet balance via GET /cray/balance?currency=NGN
-   * Wraps Cray GET /balance
+   * Wraps Cray GET /api/balance
    */
   @Get('balance')
   async getBalance(@Query('currency') currency?: string): Promise<PlatformBalanceResult> {
@@ -51,4 +51,3 @@ export class ReconciliationController {
     return this.reconciliationService.reconcilePendingTransactions(olderThan, stuckThreshold);
   }
 }
-
