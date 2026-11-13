@@ -1,17 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import {
-  AppController,
-  AppCrayAccountsController,
-  AppCustomerGuard,
-} from './app.controller';
+import { AppController, AppCrayAccountsController } from './app.controller';
 import { AppService } from './app.service';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { JwtStrategy } from './auth/jwt.strategy';
 import { CrayModule } from './modules/cray/cray.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    PassportModule.register({ defaultStrategy: 'jwt', session: false }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -46,6 +46,6 @@ import { CrayModule } from './modules/cray/cray.module';
     }),
   ],
   controllers: [AppController, AppCrayAccountsController],
-  providers: [AppService, AppCustomerGuard],
+  providers: [AppService, JwtStrategy, JwtAuthGuard],
 })
 export class AppModule {}

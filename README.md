@@ -15,7 +15,7 @@ This repository is currently distributed as source, not as a published npm packa
 3. Install the runtime dependencies not already present in the host:
 
 ```bash
-npm install @nestjs/config @nestjs/event-emitter @nestjs/schedule @nestjs/typeorm axios class-transformer class-validator decimal.js pg typeorm uuid
+npm install @nestjs/config @nestjs/event-emitter @nestjs/passport @nestjs/schedule @nestjs/typeorm axios class-transformer class-validator decimal.js passport passport-jwt pg typeorm uuid
 ```
 
 The host must enable `experimentalDecorators`, `emitDecoratorMetadata`, and strict TypeScript compilation. Configure TypeORM before importing `CrayModule`, include the copied migration in the host migration configuration, and keep `synchronize: false` outside disposable tests.
@@ -32,6 +32,7 @@ CRAY_SIGNING_KEY_ID=
 CRAY_SIGNING_PRIVATE_KEY=
 CRAY_DATA_ENCRYPTION_KEY=64_hex_char_secret_from_your_key_manager
 DATABASE_URL=postgresql://user:password@host:5432/database
+JWT_SECRET=replace_with_host_jwt_signing_secret
 ```
 
 The current provider setup uses staging credentials with the production gateway URL. `CRAY_API_KEY`, `CRAY_DATA_ENCRYPTION_KEY`, and `DATABASE_URL` are required. Signing key ID/private key are required only when request signing is enabled.
@@ -141,7 +142,7 @@ export class ProtectedPaymentsHttpModule {}
 
 Register the subclass in the same host module that imports the configured dynamic `CrayModule`, or import a host wrapper module that re-exports that configured module. Do not import an unconfigured second copy merely to access its providers.
 
-This repository includes a compiling host example in [`src/app.controller.ts`](src/app.controller.ts): `AppCrayAccountsController` mounts the inherited account routes, applies `AppCustomerGuard`, and verifies that the requested customer belongs to the authenticated principal. Replace the example guard with the host application's JWT or session guard.
+This repository includes a compiling host example in [`src/app.controller.ts`](src/app.controller.ts): `AppCrayAccountsController` mounts the inherited account routes, applies the Passport `JwtAuthGuard`, and verifies that the requested customer belongs to the authenticated principal. The accompanying strategy reads a Bearer token, verifies it with `JWT_SECRET`, rejects expired tokens, and requires a `customerId` claim. Adapt the strategy to the host application's issuer, audience, asymmetric key, and claim model.
 
 The authorization policy must compare `context.resource.customerId` and `walletId` with the authenticated principal and enforce tenant/role ownership. Authentication alone is insufficient. Never trust caller-supplied customer or wallet IDs without this comparison; override a handler or write a host controller around `ICrayService` when identity must be derived rather than accepted.
 

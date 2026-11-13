@@ -1,16 +1,10 @@
-import {
-  ExecutionContext,
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Request } from 'express';
-import {
-  AppController,
-  AppCrayAccountsController,
-  AppCustomerGuard,
-} from './app.controller';
+import { AppController, AppCrayAccountsController } from './app.controller';
 import { AppService } from './app.service';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { AccountsService } from './modules/cray/accounts/accounts.service';
 import { CrayStatus } from './modules/cray/enums/cray.enums';
 
@@ -45,16 +39,10 @@ describe('AppCrayAccountsController example', () => {
     controller = new AppCrayAccountsController(accountsService);
   });
 
-  it('requires an authenticated customer principal at the guard boundary', () => {
-    const guard = new AppCustomerGuard();
-    const request = { user: { customerId: 'cust_1' } };
-    const context = {
-      switchToHttp: () => ({ getRequest: () => request }),
-    } as unknown as ExecutionContext;
-
-    expect(guard.canActivate(context)).toBe(true);
-    delete request.user.customerId;
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+  it('uses the Passport JWT guard at the controller boundary', () => {
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, AppCrayAccountsController),
+    ).toContain(JwtAuthGuard);
   });
 
   it('allows the inherited handler only for the authenticated customer', async () => {

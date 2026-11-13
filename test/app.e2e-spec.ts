@@ -1,8 +1,10 @@
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { DataType, newDb } from 'pg-mem';
-import { randomUUID } from 'crypto';
+import { createHmac, randomUUID } from 'crypto';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AppController } from '../src/app.controller';
 import { AppService } from '../src/app.service';
@@ -13,11 +15,26 @@ import { TEST_CRAY_OPTIONS } from '../src/modules/cray/testing/test-options';
 import { CrayRefund } from '../src/modules/cray/entities/cray-refund.entity';
 import { IdempotencyService } from '../src/modules/cray/idempotency/idempotency.service';
 import { CrayException } from '../src/modules/cray/interfaces/cray.interfaces';
+import { AccountsService } from '../src/modules/cray/accounts/accounts.service';
+import { CrayStatus } from '../src/modules/cray/enums/cray.enums';
 import * as entities from '../src/modules/cray/entities';
 
 const entityList = Object.values(entities).filter(
   (value) => typeof value === 'function',
 );
+
+function signTestJwt(
+  payload: Record<string, unknown>,
+  secret: string,
+): string {
+  const encode = (value: Record<string, unknown>) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+  const unsigned = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}`;
+  const signature = createHmac('sha256', secret)
+    .update(unsigned)
+    .digest('base64url');
+  return `${unsigned}.${signature}`;
+}
 
 async function createTestDataSource(): Promise<DataSource> {
   const db = newDb({ autoCreateForeignKeyIndices: true });
@@ -137,9 +154,24 @@ describe('Cray module database-backed e2e', () => {
 
 describe('Host AppModule database wiring e2e', () => {
   let moduleFixture: TestingModule;
+  let app: INestApplication;
+  const jwtSecret = 'test-jwt-secret-at-least-32-characters';
+  const accountsService = {
+    createVirtualAccount: jest.fn(),
+    getVirtualAccount: jest.fn().mockResolvedValue({
+      customerId: 'cust_1',
+      accountNumber: '******7890',
+      accountName: 'JWT Example Customer',
+      bankName: 'Bloc',
+      currency: 'NGN',
+      status: CrayStatus.SUCCESSFUL,
+      createdAt: '2026-11-13T00:00:00.000Z',
+    }),
+  };
   const environmentKeys = [
     'DATABASE_URL',
     'DATABASE_SSL',
+    'JWT_SECRET',
     'CRAY_ENVIRONMENT',
     'CRAY_BASE_URL',
     'CRAY_API_KEY',
@@ -155,6 +187,7 @@ describe('Host AppModule database wiring e2e', () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = 'postgresql://unused-by-overridden-test-source';
     process.env.DATABASE_SSL = 'false';
+    process.env.JWT_SECRET = jwtSecret;
     process.env.CRAY_ENVIRONMENT = 'staging';
     delete process.env.CRAY_BASE_URL;
     process.env.CRAY_API_KEY = 'lrs_e2e_test_key';
@@ -168,12 +201,15 @@ describe('Host AppModule database wiring e2e', () => {
     moduleFixture = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(DataSource)
       .useValue(source)
+      .overrideProvider(AccountsService)
+      .useValue(accountsService)
       .compile();
-    await moduleFixture.init();
+    app = moduleFixture.createNestApplication();
+    await app.init();
   });
 
   afterAll(async () => {
-    if (moduleFixture) await moduleFixture.close();
+    if (app) await app.close();
     for (const key of environmentKeys) {
       const value = originalEnvironment[key];
       if (value === undefined) delete process.env[key];
@@ -209,5 +245,42 @@ describe('Host AppModule database wiring e2e', () => {
     ).resolves.toEqual(
       expect.objectContaining({ providerReference: 'host_app_refund_1' }),
     );
+  });
+
+  it('protects the example controller with JWT authentication and ownership', async () => {
+    await request(app.getHttpServer())
+      .get('/api/cray/accounts/cust_1')
+      .expect(401);
+
+    const allowedToken = signTestJwt(
+      {
+        sub: 'user_1',
+        customerId: 'cust_1',
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      jwtSecret,
+    );
+    await request(app.getHttpServer())
+      .get('/api/cray/accounts/cust_1')
+      .auth(allowedToken, { type: 'bearer' })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual(expect.objectContaining({ customerId: 'cust_1' }));
+      });
+
+    const deniedToken = signTestJwt(
+      {
+        sub: 'user_2',
+        customerId: 'cust_2',
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      jwtSecret,
+    );
+    await request(app.getHttpServer())
+      .get('/api/cray/accounts/cust_1')
+      .auth(deniedToken, { type: 'bearer' })
+      .expect(403);
+
+    expect(accountsService.getVirtualAccount).toHaveBeenCalledTimes(1);
   });
 });
