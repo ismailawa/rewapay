@@ -5,7 +5,7 @@ import {
   CRAY_DEFAULT_COLLECTION_PAYOUT_RPM,
   CRAY_DEFAULT_GENERAL_RPM,
   CRAY_DEFAULT_HTTP_TIMEOUT_MS,
-  CRAY_DEFAULT_STAGING_BASE_URL,
+  CRAY_DEFAULT_PRODUCTION_BASE_URL,
 } from '../src/modules/cray/config/cray.constants';
 
 interface CrayEnvelope {
@@ -31,17 +31,17 @@ function requiredEnvironment(
 export function buildLiveOptions(
   environment: NodeJS.ProcessEnv = process.env,
 ): CrayModuleOptions {
-  const crayEnvironment = environment.CRAY_ENVIRONMENT?.trim() || 'staging';
-  if (crayEnvironment !== 'staging') {
-    throw new Error('Live E2E only supports CRAY_ENVIRONMENT=staging.');
+  const crayEnvironment = environment.CRAY_ENVIRONMENT?.trim();
+  if (crayEnvironment !== 'production') {
+    throw new Error('Live E2E requires CRAY_ENVIRONMENT=production.');
   }
 
   const baseUrl = (
-    environment.CRAY_BASE_URL?.trim() || CRAY_DEFAULT_STAGING_BASE_URL
+    environment.CRAY_BASE_URL?.trim() || CRAY_DEFAULT_PRODUCTION_BASE_URL
   ).replace(/\/$/, '');
-  if (baseUrl !== CRAY_DEFAULT_STAGING_BASE_URL) {
+  if (baseUrl !== CRAY_DEFAULT_PRODUCTION_BASE_URL) {
     throw new Error(
-      `Live E2E only supports the Cray v1 staging gateway: ${CRAY_DEFAULT_STAGING_BASE_URL}.`,
+      `Live E2E only supports the Cray v1 production gateway: ${CRAY_DEFAULT_PRODUCTION_BASE_URL}.`,
     );
   }
 
@@ -82,15 +82,16 @@ export function buildLiveOptions(
 
 describe('Cray live E2E environment contract', () => {
   const required = {
-    CRAY_API_KEY: 'staging_merchant_api_key',
+    CRAY_ENVIRONMENT: 'production',
+    CRAY_API_KEY: 'production_merchant_api_key',
     CRAY_DATA_ENCRYPTION_KEY: 'test-encryption-key-at-least-32-bytes',
   };
 
-  it('derives the v1 staging URL when CRAY_BASE_URL is omitted', () => {
+  it('derives the v1 production URL when CRAY_BASE_URL is omitted', () => {
     expect(buildLiveOptions(required)).toEqual(
       expect.objectContaining({
-        environment: 'staging',
-        baseUrl: CRAY_DEFAULT_STAGING_BASE_URL,
+        environment: 'production',
+        baseUrl: CRAY_DEFAULT_PRODUCTION_BASE_URL,
         apiKey: required.CRAY_API_KEY,
         dataEncryptionKey: required.CRAY_DATA_ENCRYPTION_KEY,
         requestSigningEnabled: false,
@@ -101,25 +102,29 @@ describe('Cray live E2E environment contract', () => {
   it('requires both the merchant key and application encryption secret', () => {
     expect(() =>
       buildLiveOptions({
+        CRAY_ENVIRONMENT: required.CRAY_ENVIRONMENT,
         CRAY_DATA_ENCRYPTION_KEY: required.CRAY_DATA_ENCRYPTION_KEY,
       }),
     ).toThrow('CRAY_API_KEY');
     expect(() =>
-      buildLiveOptions({ CRAY_API_KEY: required.CRAY_API_KEY }),
+      buildLiveOptions({
+        CRAY_ENVIRONMENT: required.CRAY_ENVIRONMENT,
+        CRAY_API_KEY: required.CRAY_API_KEY,
+      }),
     ).toThrow('CRAY_DATA_ENCRYPTION_KEY');
   });
 
-  it('rejects production and non-staging gateway overrides', () => {
+  it('rejects non-production environments and gateway overrides', () => {
     expect(() =>
-      buildLiveOptions({ ...required, CRAY_ENVIRONMENT: 'production' }),
-    ).toThrow('CRAY_ENVIRONMENT=staging');
+      buildLiveOptions({ ...required, CRAY_ENVIRONMENT: 'staging' }),
+    ).toThrow('CRAY_ENVIRONMENT=production');
 
     expect(() =>
       buildLiveOptions({
         ...required,
-        CRAY_BASE_URL: 'https://pay.connectramp.com',
+        CRAY_BASE_URL: 'https://dev-gateman.v3.connectramp.com',
       }),
-    ).toThrow('only supports the Cray v1 staging gateway');
+    ).toThrow('only supports the Cray v1 production gateway');
   });
 
   it('requires signing credentials only when ES256 signing is enabled', () => {
@@ -146,7 +151,7 @@ describe('Cray live E2E environment contract', () => {
   });
 });
 
-describeLive('Cray sandbox live contract e2e', () => {
+describeLive('Cray production live contract e2e', () => {
   let client: CrayApiClient;
 
   beforeAll(() => {
