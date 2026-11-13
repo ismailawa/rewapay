@@ -31,7 +31,7 @@ export class RefundsService {
     const existing = await this.find(input.reference);
     if (existing) return { refundId: existing.providerReference || existing.id, status: existing.status as CrayStatus };
 
-    const response = await this.apiClient.post<RefundResponse>('/refund/initiate', {
+    const response = await this.apiClient.post<RefundResponse>('/api/v2/refund/initiate', {
       reference: input.reference,
       ...(input.amount ? { amount: input.amount } : {}),
     });
@@ -49,7 +49,9 @@ export class RefundsService {
 
   async getStatus(reference: string): Promise<RefundStatusResult> {
     if (!reference) this.invalid('Refund reference is required.');
-    const response = await this.apiClient.get<RefundResponse>(`/refund/query/${reference}`);
+    const response = await this.apiClient.get<RefundResponse>(
+      `/api/v2/refund/query/${reference}`,
+    );
     const providerReference = response.data?.reference || reference;
     const status = this.mapStatus(response.data?.status);
     const existing = await this.find(reference);

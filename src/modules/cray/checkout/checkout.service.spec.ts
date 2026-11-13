@@ -57,7 +57,7 @@ describe('CheckoutService', () => {
       expect(result.paymentUrl).toBe('https://checkout.connectramp.com/pay/RHEZ2VYSJ5P3LQA');
       expect(result.sessionId).toBe('RHEZ2VYSJ5P3LQA');
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/checkout/initialize',
+        '/api/checkout/initialize',
         expect.objectContaining({
           amount: '1000.00',
           currency: 'NGN',
@@ -126,7 +126,7 @@ describe('CheckoutService', () => {
       });
 
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/checkout/initialize',
+        '/api/checkout/initialize',
         expect.objectContaining({ token: 'subaccount_tok_abc123' }),
       );
     });
@@ -193,7 +193,7 @@ describe('CheckoutService', () => {
       expect(result.status).toBe(CrayStatus.SUCCESSFUL);
       expect(result.amount).toBe('1000.00');
       expect(result.confirmedAt).toBeDefined();
-      expect(apiClient.get).toHaveBeenCalledWith('/checkout/query/STATUS_TEST_CODE');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/checkout/query/STATUS_TEST_CODE');
     });
 
     it('should map provider "failed" to FAILED status', async () => {
@@ -249,7 +249,7 @@ describe('CheckoutService', () => {
   // =====================================================================
 
   describe('queryTransaction', () => {
-    it('should query transaction via GET /query/{reference}', async () => {
+    it('should query transaction via GET /api/query/{reference}', async () => {
       apiClient.get.mockResolvedValueOnce({
         status: true,
         data: {
@@ -260,7 +260,7 @@ describe('CheckoutService', () => {
       });
 
       const result = await service.queryTransaction('txn_ref_123');
-      expect(apiClient.get).toHaveBeenCalledWith('/query/txn_ref_123');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/query/txn_ref_123');
       expect(result).toEqual(
         expect.objectContaining({
           status: 'Successful',
@@ -280,7 +280,7 @@ describe('CheckoutService', () => {
   // =====================================================================
 
   describe('chargeCard', () => {
-    it('should charge card via POST /charge with transaction_id', async () => {
+    it('should charge card via POST /api/v2/charge with transaction_id', async () => {
       apiClient.post.mockResolvedValueOnce({
         status: true,
         data: {
@@ -290,7 +290,7 @@ describe('CheckoutService', () => {
       });
 
       const result = await service.chargeCard('TXN_GATE_123');
-      expect(apiClient.post).toHaveBeenCalledWith('/charge', {
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v2/charge', {
         transaction_id: 'TXN_GATE_123',
       });
       expect(result).toEqual(

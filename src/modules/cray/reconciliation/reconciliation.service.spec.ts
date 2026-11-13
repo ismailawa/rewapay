@@ -31,7 +31,7 @@ describe('ReconciliationService', () => {
   // =====================================================================
 
   describe('getPlatformBalance', () => {
-    it('should fetch balance from GET /balance and format to strict 2-decimal string', async () => {
+    it('should fetch balance from GET /api/balance and format to strict 2-decimal string', async () => {
       apiClient.get.mockResolvedValueOnce({
         status: 'success',
         message: 'Account balance retrieved successfully',
@@ -49,7 +49,7 @@ describe('ReconciliationService', () => {
 
       const result = await service.getPlatformBalance('NGN');
 
-      expect(apiClient.get).toHaveBeenCalledWith('/balance');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/balance');
       expect(result).toEqual({
         currency: 'NGN',
         available: '50000.50',
@@ -126,7 +126,7 @@ describe('ReconciliationService', () => {
       expect(report.totalProcessed).toBe(1);
       expect(report.resolvedCount).toBe(1);
       expect(report.stuckCount).toBe(0);
-      expect(apiClient.get).toHaveBeenCalledWith('/payout/requery/cray_transfer_001');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/payout/requery/cray_transfer_001');
       expect(transfer.status).toBe(CrayStatus.SUCCESSFUL);
     });
 
@@ -152,7 +152,7 @@ describe('ReconciliationService', () => {
 
       expect(report.totalProcessed).toBe(1);
       expect(report.resolvedCount).toBe(1);
-      expect(apiClient.get).toHaveBeenCalledWith('/checkout/query/PAYCODE_001');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/checkout/query/PAYCODE_001');
       expect(checkout.status).toBe(CrayStatus.FAILED);
     });
 

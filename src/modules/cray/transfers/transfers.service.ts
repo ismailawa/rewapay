@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -65,7 +66,7 @@ export class TransfersService {
   ) {}
 
   /**
-   * Initiates an NGN bank payout via Cray's POST /payout/disburse
+   * Initiates an NGN bank payout via Cray v1 POST /api/payout/disburse
    */
   async initiateTransfer(
     input: InitiateTransferInput & { narration?: string; customerId?: string },
@@ -74,7 +75,8 @@ export class TransfersService {
     if (!ReferenceUtil.isValidReference(input.reference)) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
-        message: 'Invalid reference. Must be non-empty and at most 64 characters.',
+        message:
+          'Invalid reference. Must be non-empty and at most 64 characters.',
         retryable: false,
       });
     }
@@ -82,7 +84,8 @@ export class TransfersService {
     if (!MoneyUtil.isValidAmountString(input.amount)) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
-        message: 'Invalid amount. Amount must be a positive 2-decimal NGN string, e.g. "100.00"',
+        message:
+          'Invalid amount. Amount must be a positive 2-decimal NGN string, e.g. "100.00"',
         retryable: false,
       });
     }
@@ -95,7 +98,8 @@ export class TransfersService {
     ) {
       throw new CrayException({
         code: CrayErrorCode.INVALID_INPUT,
-        message: 'Destination accountNumber, bankCode, and accountName are required',
+        message:
+          'Destination accountNumber, bankCode, and accountName are required',
         retryable: false,
       });
     }
@@ -134,7 +138,10 @@ export class TransfersService {
       reference: input.reference,
       amount: input.amount,
       currency: 'NGN',
-      accountNumber: FieldEncryptionUtil.encrypt(input.destination.accountNumber, this.options.dataEncryptionKey),
+      accountNumber: FieldEncryptionUtil.encrypt(
+        input.destination.accountNumber,
+        this.options.dataEncryptionKey,
+      ),
       accountNumberLast4: input.destination.accountNumber.slice(-4),
       bankCode: input.destination.bankCode,
       accountName: input.destination.accountName,
@@ -164,12 +171,15 @@ export class TransfersService {
 
     try {
       const response = await this.apiClient.post<CrayDisburseResponse>(
-        '/payout/disburse',
+        '/api/payout/disburse',
         payload,
       );
 
-      const providerReference = response?.data?.reference || response?.data?.merchant_reference || '';
-      const fee = response?.data?.charge ? response.data.charge.toString() : undefined;
+      const providerReference =
+        response?.data?.reference || response?.data?.merchant_reference || '';
+      const fee = response?.data?.charge
+        ? response.data.charge.toString()
+        : undefined;
 
       transferRecord.providerTransferReference = providerReference;
       transferRecord.status = CrayStatus.PENDING;
@@ -232,7 +242,7 @@ export class TransfersService {
     if (isPending && transfer.providerTransferReference) {
       try {
         const requery = await this.apiClient.get<CrayRequeryResponse>(
-          `/payout/requery/${transfer.providerTransferReference}`,
+          `/api/payout/requery/${transfer.providerTransferReference}`,
         );
 
         const providerStatus = (requery?.data?.status || '').toLowerCase();
@@ -241,12 +251,20 @@ export class TransfersService {
         if (providerStatus === 'approved' || providerStatus === 'successful') {
           transfer.status = CrayStatus.SUCCESSFUL;
           transfer.completedAt = new Date();
-        } else if (providerStatus === 'failed' || providerStatus === 'reversed') {
+        } else if (
+          providerStatus === 'failed' ||
+          providerStatus === 'reversed'
+        ) {
           transfer.status = CrayStatus.FAILED;
           transfer.failureMessageSanitized =
-            requery?.data?.failure_reason || requery?.message || 'Transfer failed';
+            requery?.data?.failure_reason ||
+            requery?.message ||
+            'Transfer failed';
           transfer.completedAt = new Date();
-        } else if (providerStatus === 'pending' || providerStatus === 'processing') {
+        } else if (
+          providerStatus === 'pending' ||
+          providerStatus === 'processing'
+        ) {
           transfer.status = CrayStatus.PROCESSING;
         }
 
@@ -276,7 +294,9 @@ export class TransfersService {
     return this.memoryTransfers.get(reference) || null;
   }
 
-  private async saveTransfer(data: Partial<CrayTransfer>): Promise<CrayTransfer> {
+  private async saveTransfer(
+    data: Partial<CrayTransfer>,
+  ): Promise<CrayTransfer> {
     const transfer: Partial<CrayTransfer> = {
       ...data,
       createdAt: new Date(),

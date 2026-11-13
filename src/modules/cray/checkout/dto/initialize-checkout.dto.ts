@@ -12,9 +12,9 @@ export class CheckoutCustomerDto {
 }
 
 /**
- * DTO for POST /checkout/initialize
+ * DTO for POST /api/checkout/initialize
  *
- * Validated against docs/cray-api-v2-docs.md § Hosted Checkout (POST /checkout/initialize)
+ * Validated against docs/cray-api-v1-docs.md § Hosted Checkout
  */
 export class InitializeCheckoutDto {
   /** Amount to collect in major units (e.g. 1000 for 1000 NGN) */
@@ -97,4 +97,3 @@ export class InitializeCheckoutDto {
   @IsString()
   walletId?: string;
 }
-

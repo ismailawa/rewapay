@@ -61,16 +61,16 @@ export class ReconciliationService {
   ) {}
 
   // =====================================================================
-  // Platform Balance Operations (GET /balance)
+  // Platform Balance Operations (GET /api/balance)
   // =====================================================================
 
   /**
-   * Fetches the platform wallet balance via GET /balance.
-   * Endpoint: GET /balance
-   * Docs: docs/cray-api-v2-docs.md § Quick Start & Wallet Balance
+   * Fetches the platform wallet balance via GET /api/balance.
+   * Endpoint: GET /api/balance
+   * Docs: docs/cray-api-v1-docs.md § Wallet Balance
    */
   async getPlatformBalance(currency = 'NGN'): Promise<PlatformBalanceResult> {
-    const response = await this.apiClient.get<CrayBalanceResponse>('/balance');
+    const response = await this.apiClient.get<CrayBalanceResponse>('/api/balance');
     const items = this.normalizeBalanceItems(response);
 
     const match = items.find(
@@ -100,7 +100,7 @@ export class ReconciliationService {
    * Called on hourly schedule or on demand.
    */
   async snapshotPlatformBalance(currency = 'NGN'): Promise<CrayBalanceSnapshot> {
-    const response = await this.apiClient.get<CrayBalanceResponse>('/balance');
+    const response = await this.apiClient.get<CrayBalanceResponse>('/api/balance');
     const items = this.normalizeBalanceItems(response);
 
     const match = items.find(
@@ -191,7 +191,7 @@ export class ReconciliationService {
         }
         try {
           const requeryRes = await this.apiClient.get<Record<string, unknown>>(
-            `/payout/requery/${transfer.providerTransferReference}`,
+            `/api/payout/requery/${transfer.providerTransferReference}`,
           );
           const rawStatus = (
             (requeryRes?.data as Record<string, unknown>)?.status || ''
@@ -256,11 +256,11 @@ export class ReconciliationService {
         });
         report.records.push(reconRecord);
       } else {
-        // Requery checkout status via GET /checkout/query/{reference}
+        // Requery checkout status via GET /api/checkout/query/{reference}
         try {
           const queryRef = checkout.payCode || checkout.reference;
           const requeryRes = await this.apiClient.get<Record<string, unknown>>(
-            `/checkout/query/${queryRef}`,
+            `/api/checkout/query/${queryRef}`,
           );
           const rawStatus = (
             (requeryRes?.data as Record<string, unknown>)?.status || ''

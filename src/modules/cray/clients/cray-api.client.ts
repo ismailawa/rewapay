@@ -49,7 +49,11 @@ export class CrayApiClient {
     });
   }
 
-  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async post<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     return this.executeRequest<T>({
       ...config,
       method: 'POST',
@@ -58,7 +62,11 @@ export class CrayApiClient {
     });
   }
 
-  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async put<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     return this.executeRequest<T>({
       ...config,
       method: 'PUT',
@@ -102,10 +110,10 @@ export class CrayApiClient {
     config.url = pathWithQuery;
     delete config.params;
 
-    // 4. Select the API key required by the endpoint's documented scope.
+    // 4. Cray v1 uses one merchant Secret Key for every server-side endpoint.
     const headers: Record<string, string> = {
       ...(config.headers as Record<string, string>),
-      Authorization: `Bearer ${this.resolveApiKey(url)}`,
+      Authorization: `Bearer ${this.options.apiKey}`,
     };
 
     // 5. Execute. When signing is enabled, every attempt gets a fresh nonce.
@@ -125,7 +133,10 @@ export class CrayApiClient {
           nonce,
           bodyBytes,
         });
-        const signature = CraySigner.sign(canonicalMessage, this.options.signingPrivateKey);
+        const signature = CraySigner.sign(
+          canonicalMessage,
+          this.options.signingPrivateKey,
+        );
         attemptHeaders['X-Signature'] = CraySigner.formatHeader({
           timestampMs,
           nonce,
@@ -151,10 +162,13 @@ export class CrayApiClient {
           const delay =
             process.env.NODE_ENV === 'test'
               ? 10
-              : Math.min(1000 * Math.pow(2, attempt) + Math.random() * 200, 10000);
+              : Math.min(
+                  1000 * Math.pow(2, attempt) + Math.random() * 200,
+                  10000,
+                );
           this.logger.warn(
             `[Cray] Transient error (${mappedError.message}). Retrying ${method} ${url} ` +
-            `attempt ${attempt}/${maxRetries} in ${Math.round(delay)}ms...`,
+              `attempt ${attempt}/${maxRetries} in ${Math.round(delay)}ms...`,
           );
           await new Promise((res) => setTimeout(res, delay));
           continue;
@@ -167,17 +181,9 @@ export class CrayApiClient {
     throw new Error('Unexpected retry loop termination');
   }
 
-  private resolveApiKey(url: string): string {
-    return url.split('?')[0].startsWith('/payout')
-      ? this.options.disbursementApiKey
-      : this.options.collectionApiKey;
-  }
-
   private validateConfiguration(): void {
     const missing = [
-      ['collectionApiKey', this.options.collectionApiKey],
-      ['disbursementApiKey', this.options.disbursementApiKey],
-      ['webhookKeys', this.options.webhookKeys?.length ? 'configured' : ''],
+      ['apiKey', this.options.apiKey],
       ['dataEncryptionKey', this.options.dataEncryptionKey],
       ...(this.options.requestSigningEnabled
         ? [
@@ -190,7 +196,9 @@ export class CrayApiClient {
       .map(([name]) => name);
 
     if (missing.length > 0) {
-      throw new Error(`Invalid Cray configuration: missing ${missing.join(', ')}`);
+      throw new Error(
+        `Invalid Cray configuration: missing ${missing.join(', ')}`,
+      );
     }
   }
 }

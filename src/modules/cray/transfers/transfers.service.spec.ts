@@ -93,7 +93,7 @@ describe('TransfersService', () => {
       expect(result.transferId).toBe('76F38215SRTXENH1759359170');
       expect(result.status).toBe(CrayStatus.PENDING);
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/payout/disburse',
+        '/api/payout/disburse',
         expect.objectContaining({
           customer_reference: 'ref_payout_001',
           account_number: '0123456789',
@@ -133,7 +133,7 @@ describe('TransfersService', () => {
         customerId: undefined,
       });
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/payout/disburse',
+        '/api/payout/disburse',
         expect.objectContaining({
           ref_id: 'sess_auto_validated_456',
         }),
@@ -297,7 +297,7 @@ describe('TransfersService', () => {
       const statusResult = await service.getTransferStatus('ref_requery_success');
       expect(statusResult.status).toBe(CrayStatus.SUCCESSFUL);
       expect(statusResult.amount).toBe('1000.00');
-      expect(apiClient.get).toHaveBeenCalledWith('/payout/requery/TX_CRAY_REQUERY_TEST');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/payout/requery/TX_CRAY_REQUERY_TEST');
     });
 
     it('should update status to FAILED when requery reports failed', async () => {

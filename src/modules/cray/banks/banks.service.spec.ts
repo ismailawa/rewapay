@@ -54,7 +54,7 @@ describe('BanksService', () => {
       expect(banks.length).toBe(2);
       expect(banks[0]).toEqual({ code: '000014', name: 'ACCESS BANK PLC' });
       expect(banks[1]).toEqual({ code: '000013', name: 'GTBANK' });
-      expect(apiClient.get).toHaveBeenCalledWith('/payout/banks');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/payout/banks');
     });
 
     it('should return cached bank directory on subsequent call without extra HTTP request', async () => {
@@ -123,7 +123,7 @@ describe('BanksService', () => {
       expect(result.accountName).toBe('JOHN DOE');
       expect(result.refId).toBe('sess_6ad78ff6f128b30afd238964');
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/payout/accounts/validate',
+        '/api/payout/accounts/validate',
         {
           account_number: '0123456789',
           bank_code: '000013',

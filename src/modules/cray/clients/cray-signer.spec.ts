@@ -40,7 +40,7 @@ describe('CraySigner', () => {
     it('should construct exactly 5 lines joined by newline with no trailing newline', () => {
       const msg = CraySigner.buildCanonicalMessage({
         method: 'post',
-        pathWithQuery: '/payout/disburse?dryRun=false',
+        pathWithQuery: '/api/payout/disburse?dryRun=false',
         timestampMs: 1762791600000,
         nonce: '8e1b12b5-5d46-4e09-9f7a-f78a873130d2',
         bodyBytes: '{"amount":"100.00"}',
@@ -49,7 +49,7 @@ describe('CraySigner', () => {
       const lines = msg.split('\n');
       expect(lines.length).toBe(5);
       expect(lines[0]).toBe('POST');
-      expect(lines[1]).toBe('/payout/disburse?dryRun=false');
+      expect(lines[1]).toBe('/api/payout/disburse?dryRun=false');
       expect(lines[2]).toBe('1762791600000');
       expect(lines[3]).toBe('8e1b12b5-5d46-4e09-9f7a-f78a873130d2');
       expect(lines[4]).toBe(CraySigner.hashBody('{"amount":"100.00"}'));
@@ -58,10 +58,25 @@ describe('CraySigner', () => {
   });
 
   describe('canonicalizePath', () => {
-    it('preserves a literal plus as %2B and sorts encoded query pairs', () => {
-      expect(CraySigner.canonicalizePath('/balance?search=a+b&currency=NGN&search=a b')).toBe(
-        '/balance?currency=NGN&search=a%20b&search=a%2Bb',
+    it('treats plus as a space and keeps only the last scalar value', () => {
+      expect(CraySigner.canonicalizePath('/api/balance?search=a+b&currency=NGN&search=last+value')).toBe(
+        '/api/balance?currency=NGN&search=last%20value',
       );
+    });
+
+    it('matches the official v1 array and query canonicalization vector', () => {
+      expect(
+        CraySigner.canonicalizePath(
+          '/api/collection/initiate/?x[]=1&x[]=2&tag=a+b&flag&city=S%C3%A3o%20Paulo',
+        ),
+      ).toBe(
+        '/api/collection/initiate?city=S%C3%A3o%20Paulo&flag=&tag=a%20b&x%5B0%5D=1&x%5B1%5D=2',
+      );
+      expect(
+        CraySigner.canonicalizePath(
+          '/api/balance?currency=USD&currency=NGN',
+        ),
+      ).toBe('/api/balance?currency=NGN');
     });
   });
 

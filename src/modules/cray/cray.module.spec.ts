@@ -21,12 +21,11 @@ describe('CrayModule', () => {
     return builder.compile();
   }
 
-  it('registers the secured v2 configuration and facade', async () => {
+  it('registers the secured v1 configuration and facade', async () => {
     const module = await compile(Test.createTestingModule({ imports: [CrayModule.forRoot(TEST_CRAY_OPTIONS)] }));
     expect(module.get(CRAY_SERVICE)).toBeInstanceOf(CrayService);
     expect(module.get(CRAY_MODULE_OPTIONS)).toEqual(expect.objectContaining({
-      collectionApiKey: 'test_collection_key',
-      disbursementApiKey: 'test_disbursement_key',
+      apiKey: 'test_api_key',
       requestSigningEnabled: true,
       dataEncryptionKey: TEST_CRAY_OPTIONS.dataEncryptionKey,
     }));

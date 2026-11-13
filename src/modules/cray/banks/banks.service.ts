@@ -76,7 +76,7 @@ export class BanksService {
       return this.cachedBanks;
     }
 
-    const url = '/payout/banks';
+    const url = '/api/payout/banks';
     this.logger.log(`Fetching bank directory from Cray API: ${url}`);
     const response = await this.apiClient.get<CrayBanksResponse | CrayBankResponseItem[]>(url);
 
@@ -132,7 +132,7 @@ export class BanksService {
     };
 
     const response = await this.apiClient.post<CrayAccountValidateResponse>(
-      '/payout/accounts/validate',
+      '/api/payout/accounts/validate',
       payload,
     );
 

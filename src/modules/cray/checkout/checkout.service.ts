@@ -10,7 +10,7 @@ import { ReferenceUtil } from '../utils/reference.util';
 import { InitializeCheckoutDto } from './dto/initialize-checkout.dto';
 
 // -----------------------------------------------------------------------
-// Cray API Response shapes (validated against docs/cray-api-v2-docs.md)
+// Cray API response shapes (validated against docs/cray-api-v1-docs.md)
 // -----------------------------------------------------------------------
 
 interface CrayCheckoutInitResponse {
@@ -64,11 +64,11 @@ export class CheckoutService {
   // =====================================================================
 
   /**
-   * Creates a hosted checkout session via POST /checkout/initialize.
+   * Creates a hosted checkout session via POST /api/checkout/initialize.
    *
    * Returns a Cray-hosted payment URL that you redirect the customer to.
-   * Endpoint: POST /checkout/initialize
-   * Docs: docs/cray-api-v2-docs.md § Hosted Checkout
+   * Endpoint: POST /api/checkout/initialize
+   * Docs: docs/cray-api-v1-docs.md § Hosted Checkout
    */
   async createCheckoutSession(dto: InitializeCheckoutDto): Promise<FundingSessionResult> {
     // --- Input validation ---
@@ -153,9 +153,9 @@ export class CheckoutService {
       `Initializing checkout ref: ${dto.reference}, amount: ${amount} ${dto.currency}, method: ${dto.defaultPaymentMethod}`,
     );
 
-    // --- Call Cray POST /checkout/initialize ---
+    // --- Call Cray v1 POST /api/checkout/initialize ---
     const response = await this.apiClient.post<CrayCheckoutInitResponse>(
-      '/checkout/initialize',
+      '/api/checkout/initialize',
       payload,
     );
 
@@ -183,11 +183,11 @@ export class CheckoutService {
   }
 
   /**
-   * Queries checkout session status via GET /checkout/query/{reference}.
+   * Queries checkout session status via GET /api/checkout/query/{reference}.
    *
    * Maps Cray's status string to CrayStatus enum values.
-   * Endpoint: GET /checkout/query/{reference}
-   * Docs: docs/cray-api-v2-docs.md § Hosted Checkout — Query the payment
+   * Endpoint: GET /api/checkout/query/{reference}
+   * Docs: docs/cray-api-v1-docs.md § Hosted Checkout — Query the payment
    */
   async getCheckoutStatus(reference: string): Promise<FundingStatusResult> {
     const record = await this.findByReference(reference);
@@ -205,10 +205,10 @@ export class CheckoutService {
 
     if (!isTerminal) {
       try {
-        // GET /checkout/query/{reference} — use our reference or Cray's payCode
+        // GET /api/checkout/query/{reference} — use our reference or Cray's payCode
         const queryRef = record.payCode || reference;
         const response = await this.apiClient.get<CrayCheckoutQueryResponse>(
-          `/checkout/query/${queryRef}`,
+          `/api/checkout/query/${queryRef}`,
         );
 
         const data = response?.data;
@@ -252,8 +252,8 @@ export class CheckoutService {
 
   /**
    * Queries any collection / virtual account funding or payment transaction by reference.
-   * Endpoint: GET /query/{reference}
-   * Docs: docs/cray-api-v2-docs.md § Query transaction
+   * Endpoint: GET /api/query/{reference}
+   * Docs: docs/cray-api-v1-docs.md § Query transaction
    */
   async queryTransaction(reference: string): Promise<Record<string, unknown>> {
     if (!reference) {
@@ -264,15 +264,17 @@ export class CheckoutService {
       });
     }
 
-    const response = await this.apiClient.get<Record<string, unknown>>(`/query/${reference}`);
+    const response = await this.apiClient.get<Record<string, unknown>>(
+      `/api/query/${reference}`,
+    );
     return (response?.data as Record<string, unknown>) || (response as Record<string, unknown>);
   }
 
   /**
    * Submits a direct card charge for an initialized card transaction.
    * Direct card charging is gated and requires a valid transaction_id.
-   * Endpoint: POST /charge
-   * Docs: docs/cray-api-v2-docs.md § Collections - Card charge
+   * Endpoint: POST /api/v2/charge
+   * Docs: docs/cray-api-v1-docs.md § Collections - Card charge
    */
   async chargeCard(transactionId: string): Promise<Record<string, unknown>> {
     if (!transactionId || typeof transactionId !== 'string' || !transactionId.trim()) {
@@ -283,9 +285,12 @@ export class CheckoutService {
       });
     }
 
-    const response = await this.apiClient.post<Record<string, unknown>>('/charge', {
-      transaction_id: transactionId.trim(),
-    });
+    const response = await this.apiClient.post<Record<string, unknown>>(
+      '/api/v2/charge',
+      {
+        transaction_id: transactionId.trim(),
+      },
+    );
     return (response?.data as Record<string, unknown>) || (response as Record<string, unknown>);
   }
 

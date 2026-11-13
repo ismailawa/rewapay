@@ -11,12 +11,10 @@ import {
 export interface CrayModuleOptions {
   environment: 'staging' | 'production' | 'test';
   baseUrl: string;
-  collectionApiKey: string;
-  disbursementApiKey: string;
+  apiKey: string;
   requestSigningEnabled: boolean;
   signingPrivateKey: string;
   signingKeyId: string;
-  webhookKeys: string[];
   dataEncryptionKey: string;
   httpTimeoutMs: number;
   maxRetries: number;
@@ -46,14 +44,10 @@ export const crayConfig = registerAs('cray', (): CrayModuleOptions => {
   return {
     environment,
     baseUrl: process.env.CRAY_BASE_URL || defaultBaseUrl,
-    collectionApiKey: process.env.CRAY_COLLECTION_API_KEY || '',
-    disbursementApiKey: process.env.CRAY_DISBURSEMENT_API_KEY || '',
+    apiKey: process.env.CRAY_API_KEY || '',
     requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED?.toLowerCase() === 'true',
     signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY || '',
     signingKeyId: process.env.CRAY_SIGNING_KEY_ID || '',
-    webhookKeys: process.env.CRAY_WEBHOOK_KEYS
-      ? process.env.CRAY_WEBHOOK_KEYS.split(',').map((key) => key.trim()).filter(Boolean)
-      : [],
     dataEncryptionKey: process.env.CRAY_DATA_ENCRYPTION_KEY || '',
     httpTimeoutMs: process.env.CRAY_HTTP_TIMEOUT_MS
       ? parseInt(process.env.CRAY_HTTP_TIMEOUT_MS, 10)

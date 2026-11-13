@@ -30,18 +30,13 @@ import { CrayModule } from './modules/cray/cray.module';
           'CRAY_ENVIRONMENT',
           'staging',
         ),
-        collectionApiKey: config.get<string>('CRAY_COLLECTION_API_KEY', ''),
-        disbursementApiKey: config.get<string>('CRAY_DISBURSEMENT_API_KEY', ''),
+        apiKey: config.get<string>('CRAY_API_KEY', ''),
         requestSigningEnabled:
           config
             .get<string>('CRAY_REQUEST_SIGNING_ENABLED', 'false')
             .toLowerCase() === 'true',
         signingKeyId: config.get<string>('CRAY_SIGNING_KEY_ID', ''),
         signingPrivateKey: config.get<string>('CRAY_SIGNING_PRIVATE_KEY', ''),
-        webhookKeys: config
-          .get<string>('CRAY_WEBHOOK_KEYS', '')
-          .split(',')
-          .filter(Boolean),
         dataEncryptionKey: config.get<string>('CRAY_DATA_ENCRYPTION_KEY', ''),
       }),
     }),

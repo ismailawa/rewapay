@@ -124,10 +124,8 @@ describe('Host AppModule database wiring e2e', () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = 'postgresql://unused-by-overridden-test-source';
     process.env.DATABASE_SSL = 'false';
-    process.env.CRAY_COLLECTION_API_KEY = 'test_collection_key';
-    process.env.CRAY_DISBURSEMENT_API_KEY = 'test_disbursement_key';
+    process.env.CRAY_API_KEY = 'test_api_key';
     process.env.CRAY_REQUEST_SIGNING_ENABLED = 'false';
-    process.env.CRAY_WEBHOOK_KEYS = 'test_webhook_key_1234';
     process.env.CRAY_DATA_ENCRYPTION_KEY =
       'test-data-encryption-key-at-least-32-bytes';
 

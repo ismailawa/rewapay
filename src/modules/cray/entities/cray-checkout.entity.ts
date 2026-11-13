@@ -7,8 +7,8 @@ import {
 } from 'typeorm';
 
 /**
- * Persists hosted checkout sessions created via POST /checkout/initialize.
- * Tracks status changes polled via GET /checkout/query/{reference}.
+ * Persists hosted checkout sessions created via POST /api/checkout/initialize.
+ * Tracks status changes polled via GET /api/checkout/query/{reference}.
  */
 @Entity('cray_checkouts')
 export class CrayCheckout {
@@ -67,7 +67,7 @@ export class CrayCheckout {
 
   /**
    * Cray's hosted checkout URL to redirect the customer to.
-   * Returned as `data.link` from POST /checkout/initialize.
+   * Returned as `data.link` from POST /api/checkout/initialize.
    */
   @Column({ nullable: true })
   paymentLink?: string;
@@ -123,4 +123,3 @@ export class CrayCheckout {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-

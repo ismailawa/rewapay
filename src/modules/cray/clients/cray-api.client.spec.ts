@@ -28,12 +28,10 @@ describe('CrayApiClient', () => {
   const createOptions = (overrides?: Partial<CrayModuleOptions>): CrayModuleOptions => ({
     environment: 'staging',
     baseUrl: 'https://dev-gateman.v3.connectramp.com',
-    collectionApiKey: 'test-collection-token',
-    disbursementApiKey: 'test-disbursement-token',
+    apiKey: 'test-api-token',
     requestSigningEnabled: true,
     signingPrivateKey: privateKeyPem,
     signingKeyId: '11111111-1111-4111-8111-111111111111',
-    webhookKeys: ['test-webhook-key'],
     dataEncryptionKey: 'test-data-encryption-key',
     httpTimeoutMs: 5000,
     maxRetries: 2,
@@ -51,12 +49,12 @@ describe('CrayApiClient', () => {
       .spyOn(client.axios, 'request')
       .mockResolvedValue(mockResponse as never);
 
-    const result = await client.get('/balance');
+    const result = await client.get('/api/balance');
     expect(result).toEqual({ success: true });
     expect(requestSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer test-collection-token',
+          Authorization: 'Bearer test-api-token',
         }),
       }),
     );
@@ -73,7 +71,7 @@ describe('CrayApiClient', () => {
     });
 
     const body = { customer_email: 'test@example.com' };
-    await client.post('/virtual-accounts/create', body);
+    await client.post('/api/virtual-accounts/create', body);
 
     expect(capturedHeaders['X-Signature']).toBeDefined();
     const sigHeader = capturedHeaders['X-Signature'];
@@ -92,7 +90,7 @@ describe('CrayApiClient', () => {
     // Verify signature against canonical message
     const canonicalMessage = CraySigner.buildCanonicalMessage({
       method: 'POST',
-      pathWithQuery: '/virtual-accounts/create',
+      pathWithQuery: '/api/virtual-accounts/create',
       timestampMs: params['t'],
       nonce: params['n'],
       bodyBytes: JSON.stringify(body),
@@ -113,27 +111,27 @@ describe('CrayApiClient', () => {
       signingKeyId: '',
     }));
     const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
-    await client.get('/balance');
+    await client.get('/api/balance');
     const headers = requestSpy.mock.calls[0][0].headers as Record<string, string>;
-    expect(headers.Authorization).toBe('Bearer test-collection-token');
+    expect(headers.Authorization).toBe('Bearer test-api-token');
     expect(headers['X-Signature']).toBeUndefined();
   });
 
-  it('should route payout requests through the disbursement-scoped key', async () => {
+  it('should use the same v1 Secret Key for payout requests', async () => {
     const client = new CrayApiClient(createOptions());
     const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
-    await client.get('/payout/banks');
+    await client.get('/api/payout/banks');
     expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: 'Bearer test-disbursement-token' }),
+      headers: expect.objectContaining({ Authorization: 'Bearer test-api-token' }),
     }));
   });
 
   it('transmits the same sorted and encoded query path that it signs', async () => {
     const client = new CrayApiClient(createOptions());
     const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
-    await client.get('/balance?search=a+b&currency=NGN');
+    await client.get('/api/balance?search=a+b&currency=NGN');
     expect(requestSpy).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/balance?currency=NGN&search=a%2Bb',
+      url: '/api/balance?currency=NGN&search=a%20b',
     }));
   });
 
@@ -144,7 +142,7 @@ describe('CrayApiClient', () => {
       signingKeyId: '',
       signingPrivateKey: '',
     }))).not.toThrow();
-    expect(() => new CrayApiClient(createOptions({ webhookKeys: [] }))).toThrow('webhookKeys');
+    expect(() => new CrayApiClient(createOptions({ apiKey: '' }))).toThrow('apiKey');
   });
 
   it('should map Axios errors to typed CrayException', async () => {
@@ -160,12 +158,12 @@ describe('CrayApiClient', () => {
     };
     jest.spyOn(client.axios, 'request').mockRejectedValue(axiosError);
 
-    await expect(client.post('/payout/disburse', { amount: '100.00' })).rejects.toThrow(
+    await expect(client.post('/api/payout/disburse', { amount: '100.00' })).rejects.toThrow(
       CrayException,
     );
 
     try {
-      await client.post('/payout/disburse', { amount: '100.00' });
+      await client.post('/api/payout/disburse', { amount: '100.00' });
     } catch (err) {
       const crayErr = err as CrayException;
       expect(crayErr.code).toBe(CrayErrorCode.DUPLICATE_REFERENCE);
@@ -192,7 +190,7 @@ describe('CrayApiClient', () => {
       .mockRejectedValueOnce(serverError)
       .mockResolvedValueOnce(successResponse as never);
 
-    const result = await client.get('/payout/banks?countryCode=NG');
+    const result = await client.get('/api/payout/banks?countryCode=NG');
     expect(result).toEqual({ banks: [] });
     expect(requestSpy).toHaveBeenCalledTimes(2);
     const firstSignature = (requestSpy.mock.calls[0][0].headers as Record<string, string>)['X-Signature'];
