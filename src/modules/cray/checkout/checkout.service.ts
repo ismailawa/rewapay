@@ -268,7 +268,7 @@ export class CheckoutService {
   /**
    * Submits a direct card charge for an initialized card transaction.
    * Direct card charging is gated and requires a valid transaction_id.
-   * Endpoint: POST /api/v2/charge
+   * Endpoint: POST /api/charge
    * Docs: docs/cray-api-v1-docs.md § Collections - Card charge
    */
   async chargeCard(transactionId: string): Promise<Record<string, unknown>> {
@@ -281,7 +281,7 @@ export class CheckoutService {
     }
 
     const response = await this.apiClient.post<Record<string, unknown>>(
-      '/api/v2/charge',
+      '/api/charge',
       {
         transaction_id: transactionId.trim(),
       },

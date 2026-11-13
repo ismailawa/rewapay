@@ -84,7 +84,7 @@ describe('CraySigner', () => {
     it('should sign canonical message with ES256 and successfully verify with public key', () => {
       const canonicalMessage = CraySigner.buildCanonicalMessage({
         method: 'POST',
-        pathWithQuery: '/api/v2/refund/initiate',
+        pathWithQuery: '/api/refund/initiate',
         timestampMs: 1762791600000,
         nonce: 'test-nonce-1234',
         bodyBytes: '{"test":"payload"}',
@@ -101,7 +101,7 @@ describe('CraySigner', () => {
     it('should fail verification if canonical message was tampered with', () => {
       const canonicalMessage = CraySigner.buildCanonicalMessage({
         method: 'POST',
-        pathWithQuery: '/api/v2/refund/initiate',
+        pathWithQuery: '/api/refund/initiate',
         timestampMs: 1762791600000,
         nonce: 'test-nonce-1234',
         bodyBytes: '{"test":"payload"}',

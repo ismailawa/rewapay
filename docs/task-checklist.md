@@ -41,11 +41,11 @@
 
 - [x] **Task 3: Customer & Virtual Accounts Management**
   - **Scope:** Create Bloc/PalmPay permanent and one-time NGN virtual accounts, corporate accounts, and retrieve persisted accounts.
-  - **Endpoints:** `POST /api/virtual-accounts/create`, `POST /api/v2/corporate-accounts/create`, `GET /api/virtual-accounts`.
+  - **Endpoints:** `POST /api/virtual-accounts/create`, `POST /api/corporate-accounts/create`, `GET /api/virtual-accounts`.
   - **Acceptance Criteria:**
     - [x] `POST /api/virtual-accounts/create` handles default provider `Bloc` and `PalmPay`.
     - [x] Provider-discriminated payloads prevent Bloc, PalmPay, and corporate fields from being mixed.
-    - [x] Corporate accounts use `POST /api/v2/corporate-accounts/create`.
+    - [x] Corporate accounts use `POST /api/corporate-accounts/create`.
     - [x] The undocumented direct Wema OTP HTTP operation is not exposed by the facade.
     - [x] Duplicate creation prevented if active account already exists for customer.
     - [x] `getVirtualAccount` returns sanitized account details or null.
@@ -142,7 +142,7 @@
 - [x] **Task 12: Cray v1-Only Contract Migration**
   - [x] Replace scoped collection/disbursement/webhook keys with one `apiKey` / `CRAY_API_KEY` breaking contract.
   - [x] Use the ConnectRamp v1 staging and production gateways and exact `/api` endpoint prefixes.
-  - [x] Preserve the documented `/api/v2` segments for corporate-account and refund operations.
+  - [x] Remove stale `/api/v2` segments from corporate-account, direct-card-charge, and refund operations; all active v1 routes use `/api/...`.
   - [x] Implement v1 query canonicalization, including plus-to-space, scalar last-value, and indexed-array rules.
   - [x] Verify `collection.*` HMACs with the merchant API key and confirm unsigned `payin`/`payout` events by requery.
   - [x] Keep `ICrayService`, persistence, financial idempotency, ambiguous-timeout quarantine, encryption, and redaction behavior intact.
@@ -165,3 +165,10 @@
   - [x] Remove the obsolete webhook key hint from the public webhook DTO and retain exact-delivery deduplication and redaction.
   - [x] Align active documentation and fixtures to the exact v1 routes while preserving historical v2 status and the migration filename/class.
   - [x] Pass all unit/acceptance tests, the TypeScript build, database-backed E2E tests, and the read-only live Cray contract suite.
+
+- [x] **Task 14: Remove Remaining Active v2 Route Segments**
+  - [x] Update corporate account creation to `POST /api/corporate-accounts/create`.
+  - [x] Update direct card charge to `POST /api/charge`.
+  - [x] Update refunds to `POST /api/refund/initiate` and `GET /api/refund/query/{reference}`.
+  - [x] Remove `/api/v2` from all active implementation code, tests, fixtures, comments, and v1 documentation.
+  - [x] Retain the historical Task 11 record and applied TypeORM migration filename/class to preserve implementation and migration history.

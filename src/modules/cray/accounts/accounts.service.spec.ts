@@ -47,7 +47,7 @@ describe('AccountsService Cray v1 contracts', () => {
   it('routes corporate account creation to the documented endpoint', async () => {
     api.post.mockResolvedValue(response);
     await service.createVirtualAccount({ customerId: 'corp_1', accountType: 'corporate', fullName: 'Jane Doe', bvn: '22192474887', rcNumber: '99988828822', phone: '08030000000', email: 'ops@acme.co', businessType: 'COMPANY', businessName: 'Acme Ltd' });
-    expect(api.post).toHaveBeenCalledWith('/api/v2/corporate-accounts/create', expect.objectContaining({ full_name: 'Jane Doe', rc_number: '99988828822', business_type: 'COMPANY', business_name: 'Acme Ltd' }));
+    expect(api.post).toHaveBeenCalledWith('/api/corporate-accounts/create', expect.objectContaining({ full_name: 'Jane Doe', rc_number: '99988828822', business_type: 'COMPANY', business_name: 'Acme Ltd' }));
   });
 
   it('rejects invalid provider-specific inputs', async () => {

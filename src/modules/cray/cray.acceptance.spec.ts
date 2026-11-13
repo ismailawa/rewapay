@@ -81,6 +81,6 @@ describe('Cray v1 in-process acceptance', () => {
       refundId: 'REFUND_FULL_1',
       status: CrayStatus.PENDING,
     });
-    expect(api.post).toHaveBeenCalledWith('/api/v2/refund/initiate', { reference: 'PAYMENT_FULL_1' });
+    expect(api.post).toHaveBeenCalledWith('/api/refund/initiate', { reference: 'PAYMENT_FULL_1' });
   });
 });

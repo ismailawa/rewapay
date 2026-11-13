@@ -4,7 +4,7 @@
 **Verified:** 13 November 2026  
 **Scope:** Endpoints used by the RewaPay Cray module.
 
-This snapshot records the v1 wire contract used by the implementation. The official documentation remains authoritative when this file and the hosted documentation differ.
+This snapshot records the v1 wire contract used by the implementation. The official documentation remains authoritative when this file and the hosted documentation differ. All paths below are complete paths appended to the gateway origin and use the `/api` namespace.
 
 ## Environments and authentication
 
@@ -51,7 +51,7 @@ Official vectors:
 |---|---|---|
 | Wallet balance | `GET /api/balance` | Returns wallets in `data[]` with `currency`, `available_balance`, `locked_balance`, and `actual_balance`. |
 | Virtual account | `POST /api/virtual-accounts/create` | Bloc uses `virtual_account_type`; PalmPay uses lowercase `palmpay` and `account_type`; one-time accounts use the same route. |
-| Corporate account | `POST /api/v2/corporate-accounts/create` | Requires `full_name`, `bvn`, `rc_number`, `phone`, `customer_email`, and `business_type`. |
+| Corporate account | `POST /api/corporate-accounts/create` | Requires `full_name`, `bvn`, `rc_number`, `phone`, `customer_email`, and `business_type`. |
 | List virtual accounts | `GET /api/virtual-accounts` | Paginated provider account listing. RewaPay reads its encrypted local account record instead. |
 | Bank directory | `GET /api/payout/banks` | Omit `countryCode` for Nigeria. |
 | Account validation | `POST /api/payout/accounts/validate` | Send `account_number` and `bank_code`; response includes `account_name` and short-lived `ref_id`. |
@@ -60,9 +60,9 @@ Official vectors:
 | Hosted checkout | `POST /api/checkout/initialize` | Returns the hosted link in `data.link` and may return `data.payCode`. |
 | Checkout query | `GET /api/checkout/query/{reference}` | Query by the pay code when available, otherwise merchant reference. |
 | Collection query | `GET /api/query/{customer_reference}` | Authoritative query for general/virtual-account collections. |
-| Direct card charge | `POST /api/v2/charge` | Submit the `transaction_id` returned by an initialized direct-card transaction. |
-| Refund initiation | `POST /api/v2/refund/initiate` | `reference` is required; `amount` is optional for a partial refund. |
-| Refund query | `GET /api/v2/refund/query/{reference}` | Returns refund status and original transaction details. |
+| Direct card charge | `POST /api/charge` | Submit the `transaction_id` returned by an initialized direct-card transaction. |
+| Refund initiation | `POST /api/refund/initiate` | `reference` is required; `amount` is optional for a partial refund. |
+| Refund query | `GET /api/refund/query/{reference}` | Returns refund status and original transaction details. |
 
 ## Webhooks
 

@@ -2,6 +2,8 @@
 
 NestJS integration for the signed [Cray Finance v1 API](https://docs.crayfi.com/v1). It supports provider-specific virtual accounts, hosted checkout, NGN payouts, refunds, verified webhooks, balance snapshots, and reconciliation.
 
+The complete implemented route inventory is maintained in [`docs/cray-api-v1-docs.md`](docs/cray-api-v1-docs.md). All active provider routes use the `/api/...` namespace; the module has no active `/api/v2/...` route.
+
 ## Required configuration
 
 Cray v1 uses one merchant API key for every server-side call implemented here and for collection-webhook HMAC verification. Request signing is optional and adds `X-Signature` on top of Bearer authentication; encrypted sensitive-field storage remains mandatory.

@@ -133,7 +133,7 @@ describe('CrayModule full database-backed e2e', () => {
           account_name:
             (request.account_name as string) || (request.full_name as string),
           bank:
-            path === '/api/v2/corporate-accounts/create' ? 'Wema Bank' : 'Cray Bank',
+            path === '/api/corporate-accounts/create' ? 'Wema Bank' : 'Cray Bank',
           sort_code: '035',
         },
       });
@@ -225,7 +225,7 @@ describe('CrayModule full database-backed e2e', () => {
           businessType: 'COMPANY' as const,
           businessName: 'Cray Trading',
         },
-        endpoint: '/api/v2/corporate-accounts/create',
+        endpoint: '/api/corporate-accounts/create',
         payload: {
           full_name: 'Cray Trading Limited',
           rc_number: 'RC123456',
@@ -469,8 +469,8 @@ describe('CrayModule full database-backed e2e', () => {
       status: CrayStatus.PROCESSING,
     });
     expect(api.post.mock.calls).toEqual([
-      ['/api/v2/refund/initiate', { reference: 'payment-full' }],
-      ['/api/v2/refund/initiate', { reference: 'payment-partial', amount: '250.00' }],
+      ['/api/refund/initiate', { reference: 'payment-full' }],
+      ['/api/refund/initiate', { reference: 'payment-partial', amount: '250.00' }],
     ]);
 
     api.get.mockResolvedValueOnce({
@@ -487,7 +487,7 @@ describe('CrayModule full database-backed e2e', () => {
         amount: '250.00',
       }),
     );
-    expect(api.get).toHaveBeenCalledWith('/api/v2/refund/query/payment-partial');
+    expect(api.get).toHaveBeenCalledWith('/api/refund/query/payment-partial');
 
     const repo = moduleFixture.get<Repository<CrayRefund>>(
       getRepositoryToken(CrayRefund),
@@ -520,7 +520,7 @@ describe('CrayModule full database-backed e2e', () => {
       transaction_id: 'card-transaction-1',
       status: 'pending',
     });
-    expect(api.post).toHaveBeenCalledWith('/api/v2/charge', {
+    expect(api.post).toHaveBeenCalledWith('/api/charge', {
       transaction_id: 'card-transaction-1',
     });
 

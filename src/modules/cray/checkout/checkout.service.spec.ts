@@ -291,7 +291,7 @@ describe('CheckoutService', () => {
   // =====================================================================
 
   describe('chargeCard', () => {
-    it('should charge card via POST /api/v2/charge with transaction_id', async () => {
+    it('should charge card via POST /api/charge with transaction_id', async () => {
       apiClient.post.mockResolvedValueOnce({
         status: true,
         data: {
@@ -301,7 +301,7 @@ describe('CheckoutService', () => {
       });
 
       const result = await service.chargeCard('TXN_GATE_123');
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v2/charge', {
+      expect(apiClient.post).toHaveBeenCalledWith('/api/charge', {
         transaction_id: 'TXN_GATE_123',
       });
       expect(result).toEqual(

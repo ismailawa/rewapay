@@ -2,14 +2,15 @@ import { CrayRateLimiter, TokenBucket } from './cray-rate-limiter';
 
 describe('CrayRateLimiter', () => {
   describe('categorizeEndpoint', () => {
-    it('should categorize payout, checkout, virtual-accounts, and v2 routes as financial', () => {
+    it('should categorize all implemented v1 financial routes as financial', () => {
       expect(CrayRateLimiter.categorizeEndpoint('/api/payout/disburse')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/payout/accounts/validate')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/checkout/initialize')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/query/merchant-reference')).toBe('financial');
       expect(CrayRateLimiter.categorizeEndpoint('/api/virtual-accounts/create')).toBe('financial');
-      expect(CrayRateLimiter.categorizeEndpoint('/api/v2/refund/initiate')).toBe('financial');
-      expect(CrayRateLimiter.categorizeEndpoint('/api/v2/charge')).toBe('financial');
+      expect(CrayRateLimiter.categorizeEndpoint('/api/refund/initiate')).toBe('financial');
+      expect(CrayRateLimiter.categorizeEndpoint('/api/charge')).toBe('financial');
+      expect(CrayRateLimiter.categorizeEndpoint('/api/corporate-accounts/create')).toBe('financial');
     });
 
     it('should categorize balance and health listing as general', () => {

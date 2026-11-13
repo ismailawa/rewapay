@@ -67,7 +67,7 @@ export class AccountsService {
     await this.upsertCustomer(input.customerId, input.email);
     const reference = ReferenceUtil.generate('va');
     const endpoint = input.accountType === 'corporate'
-      ? '/api/v2/corporate-accounts/create'
+      ? '/api/corporate-accounts/create'
       : '/api/virtual-accounts/create';
     const payload = this.buildPayload(input, reference);
 

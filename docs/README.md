@@ -1,12 +1,12 @@
 # Cray v1 Integration Reference
 
-The active implementation is validated against [`cray-api-v1-docs.md`](./cray-api-v1-docs.md), sourced from [Cray v1](https://docs.crayfi.com/v1). The v2 snapshot is retained only as historical migration context and is not a runtime contract.
+The active implementation is validated against [`cray-api-v1-docs.md`](./cray-api-v1-docs.md), sourced from [Cray v1](https://docs.crayfi.com/v1). The v2 snapshot is retained only as historical migration context and is not a runtime contract. Active v1 provider paths use `/api/...`; none use `/api/v2/...`.
 
 ## Implemented provider contracts
 
-- Accounts and collections: `POST /api/virtual-accounts/create`, `POST /api/v2/corporate-accounts/create`, `POST /api/checkout/initialize`, `GET /api/checkout/query/{reference}`, `GET /api/query/{customer_reference}`, and `POST /api/v2/charge`.
+- Accounts and collections: `POST /api/virtual-accounts/create`, `POST /api/corporate-accounts/create`, `POST /api/checkout/initialize`, `GET /api/checkout/query/{reference}`, `GET /api/query/{customer_reference}`, and `POST /api/charge`.
 - Payouts: `GET /api/payout/banks`, `POST /api/payout/accounts/validate`, `POST /api/payout/disburse`, and `GET /api/payout/requery/{transaction_id}`.
-- Balance and refunds: `GET /api/balance`, `POST /api/v2/refund/initiate`, and `GET /api/v2/refund/query/{reference}`.
+- Balance and refunds: `GET /api/balance`, `POST /api/refund/initiate`, and `GET /api/refund/query/{reference}`.
 - Every implemented provider call uses the same Bearer merchant API key. Optional ES256 signing adds `X-Signature` over the five-line canonical request when enabled.
 - `collection.*` webhooks use the merchant API key for HMAC-SHA256 verification of `JSON.stringify(data)`. Unsigned `payin` and `payout` notifications require authoritative requery before terminal events are emitted. Deliveries are fingerprinted and redacted before persistence.
 
@@ -17,7 +17,7 @@ The active implementation is validated against [`cray-api-v1-docs.md`](./cray-ap
 - Ambiguous financial calls stay unresolved and are never blindly replayed. Requery uses Cray's returned transaction ID only.
 - Account numbers are AES-256-GCM encrypted at rest with deterministic lookup hashes where lookup is required.
 - Reconciliation runs every five minutes; balance snapshots run hourly. Items without a provider transaction ID are escalated for manual review.
-- Full and partial refunds use `POST /api/v2/refund/initiate`; status uses `GET /api/v2/refund/query/{reference}`.
+- Full and partial refunds use `POST /api/refund/initiate`; status uses `GET /api/refund/query/{reference}`.
 
 ## Public module contract
 
