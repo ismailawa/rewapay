@@ -149,6 +149,8 @@
   - [x] Update unit, acceptance, E2E, live-contract, README, status, and workflow documentation; identify required, conditional, and defaulted v1 variables in `.env.example`.
   - [x] Keep host and live E2E configuration aligned with required variables, conditional signing, staging credentials, and an immutable production-gateway override per Cray's direction.
   - [x] Add a separately gated live contract test for permanent Bloc virtual-account creation using staging configuration, the production gateway, the documented payload, and a fresh reference per run.
+  - [x] Exercise permanent Bloc creation through `AccountsService` to cover implementation mapping, provider I/O, normalization, encryption, and persistence lookup end to end.
+  - [x] Pass the opt-in implementation-to-Cray virtual-account test using staging configuration on the production gateway.
   - [x] Allow live provider checks to reach the configured HTTP timeout before Jest aborts them.
   - [x] Pass unit, build, and database-backed E2E verification.
   - [x] Verify against the official `crayfi` SDK that implemented v1 routes use one Bearer merchant API key and do not require payment public/verification keys.

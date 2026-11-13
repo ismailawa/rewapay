@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { randomUUID } from 'crypto';
+import { AccountsService } from '../src/modules/cray/accounts/accounts.service';
 import { CrayApiClient } from '../src/modules/cray/clients/cray-api.client';
 import { CrayModuleOptions } from '../src/modules/cray/config/cray.config';
 import {
@@ -13,13 +14,6 @@ interface CrayEnvelope {
   status?: boolean | string;
   message?: string;
   data?: unknown;
-}
-
-interface CrayVirtualAccountData {
-  account_number?: string;
-  accountNumber?: string;
-  account_name?: string;
-  accountName?: string;
 }
 
 const liveEnabled = process.env.RUN_CRAY_LIVE_E2E === 'true';
@@ -203,39 +197,40 @@ describeLiveReadOnly('Cray staging credentials on production gateway e2e', () =>
 describeLiveMutation(
   'Cray staging virtual-account contract on production gateway e2e',
   () => {
-    let client: CrayApiClient;
+    let accountsService: AccountsService;
 
     beforeAll(() => {
-      client = new CrayApiClient(buildLiveOptions());
+      const options = buildLiveOptions();
+      accountsService = new AccountsService(
+        new CrayApiClient(options),
+        options,
+      );
     });
 
     it(
       'creates a permanent individual Bloc virtual account',
       async () => {
-        const response = await client.post<CrayEnvelope>(
-          '/api/virtual-accounts/create',
-          {
-            type: 'individual',
-            virtual_account_type: 'Permanent',
-            currency: 'NGN',
-            provider: 'Bloc',
-            account_name: 'Prin Test',
-            customer_email: 'pess@example.com',
-            reference: randomUUID(),
-            first_name: 'Prin',
-            last_name: 'Test',
-            date_of_birth: '1982-10-23',
-          },
-        );
+        const customerId = `live-va-${randomUUID()}`;
+        const created = await accountsService.createVirtualAccount({
+          customerId,
+          accountType: 'Permanent',
+          provider: 'Bloc',
+          accountName: 'Prin Test',
+          email: 'pess@example.com',
+          firstName: 'Prin',
+          lastName: 'Test',
+          dateOfBirth: '1982-10-23',
+        });
+        const persisted = await accountsService.getVirtualAccount(customerId);
 
-        const data = response.data as CrayVirtualAccountData | undefined;
-        const accountNumber = data?.account_number ?? data?.accountNumber;
-        const accountName = data?.account_name ?? data?.accountName;
-
-        expect(typeof accountNumber).toBe('string');
-        expect(accountNumber?.length).toBeGreaterThan(0);
-        expect(typeof accountName).toBe('string');
-        expect(accountName?.length).toBeGreaterThan(0);
+        expect(typeof created.accountNumber).toBe('string');
+        expect(created.accountNumber.length).toBeGreaterThan(0);
+        expect(typeof created.accountName).toBe('string');
+        expect(created.accountName.length).toBeGreaterThan(0);
+        expect(typeof created.bankName).toBe('string');
+        expect(created.bankName.length).toBeGreaterThan(0);
+        expect(typeof persisted?.accountNumber).toBe('string');
+        expect(persisted?.accountNumber.length).toBeGreaterThan(0);
       },
       liveTestTimeoutMs,
     );
