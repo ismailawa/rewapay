@@ -22,7 +22,6 @@ import { AccountsService } from './accounts/accounts.service';
 import { BanksService } from './banks/banks.service';
 import { TransfersService } from './transfers/transfers.service';
 import { CheckoutService } from './checkout/checkout.service';
-import { WebhooksController } from './webhooks/webhooks.controller';
 import { WebhooksService } from './webhooks/webhooks.service';
 import { WebhooksVerifier } from './webhooks/webhooks.verifier';
 import { IdempotencyService } from './idempotency/idempotency.service';
@@ -50,9 +49,6 @@ const ENTITIES = [
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature(ENTITIES),
-  ],
-  controllers: [
-    WebhooksController,
   ],
   providers: [
     {
@@ -112,9 +108,6 @@ export class CrayModule {
         EventEmitterModule.forRoot(),
         ScheduleModule.forRoot(),
         TypeOrmModule.forFeature(ENTITIES),
-      ],
-      controllers: [
-        WebhooksController,
       ],
       providers: [
         customOptionsProvider,
@@ -178,9 +171,6 @@ export class CrayModule {
         EventEmitterModule.forRoot(),
         ScheduleModule.forRoot(),
         TypeOrmModule.forFeature(ENTITIES),
-      ],
-      controllers: [
-        WebhooksController,
       ],
       providers: [
         asyncOptionsProvider,

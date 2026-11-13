@@ -4,6 +4,7 @@ export * from './config/cray.config';
 export * from './config/cray.constants';
 export * from './enums/cray.enums';
 export * from './interfaces/cray.interfaces';
+export * from './controllers';
 export * from './utils/money.util';
 export * from './utils/reference.util';
 export * from './utils/field-encryption.util';

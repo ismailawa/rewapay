@@ -1,63 +1,63 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ReconciliationController } from './reconciliation.controller';
+import type { Request } from 'express';
+import { CrayAdminControllerBase } from './reconciliation.controller';
 import { ReconciliationService } from './reconciliation.service';
+import type { CrayAuthorizationContext } from '../controllers';
 
-describe('ReconciliationController', () => {
-  let controller: ReconciliationController;
+class TestAdminController extends CrayAdminControllerBase {
+  readonly authorizeMock = jest.fn<void, [CrayAuthorizationContext]>();
+
+  constructor(service: ReconciliationService) {
+    super(service);
+  }
+
+  protected authorize(context: CrayAuthorizationContext): void {
+    this.authorizeMock(context);
+  }
+}
+
+describe('CrayAdminControllerBase', () => {
+  const request = {} as Request;
+  let controller: TestAdminController;
   let service: jest.Mocked<ReconciliationService>;
 
-  beforeEach(async () => {
-    const mockService = {
+  beforeEach(() => {
+    service = {
       getPlatformBalance: jest.fn(),
       snapshotPlatformBalance: jest.fn(),
       reconcilePendingTransactions: jest.fn(),
-    };
-
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [ReconciliationController],
-      providers: [{ provide: ReconciliationService, useValue: mockService }],
-    }).compile();
-
-    controller = module.get<ReconciliationController>(ReconciliationController);
-    service = module.get(ReconciliationService);
+    } as unknown as jest.Mocked<ReconciliationService>;
+    controller = new TestAdminController(service);
   });
 
-  it('should call getPlatformBalance on GET /cray/balance', async () => {
+  it('authorizes balance reads and snapshots separately', async () => {
     service.getPlatformBalance.mockResolvedValueOnce({
-      currency: 'NGN',
-      available: '25000.00',
-      ledger: '25000.00',
+      currency: 'NGN', available: '25000.00', ledger: '25000.00',
     });
-
-    const result = await controller.getBalance('NGN');
-    expect(result).toEqual({ currency: 'NGN', available: '25000.00', ledger: '25000.00' });
-    expect(service.getPlatformBalance).toHaveBeenCalledWith('NGN');
-  });
-
-  it('should call snapshotPlatformBalance on POST /cray/balance/snapshot', async () => {
     service.snapshotPlatformBalance.mockResolvedValueOnce({
-      id: 'snap_01',
-      currency: 'NGN',
-      availableBalance: '25000.00',
-      createdAt: new Date(),
-    } as any);
+      id: 'snap_01', currency: 'NGN', availableBalance: '25000.00', createdAt: new Date(),
+    } as never);
 
-    const result = await controller.snapshotBalance('NGN');
-    expect(result.availableBalance).toBe('25000.00');
-    expect(service.snapshotPlatformBalance).toHaveBeenCalledWith('NGN');
+    await controller.getBalance('NGN', request);
+    await controller.snapshotBalance(request, 'NGN');
+
+    expect(controller.authorizeMock).toHaveBeenNthCalledWith(1, {
+      operation: 'admin.balance.read', request, resource: { currency: 'NGN' },
+    });
+    expect(controller.authorizeMock).toHaveBeenNthCalledWith(2, {
+      operation: 'admin.balance.snapshot', request, resource: { currency: 'NGN' },
+    });
   });
 
-  it('should call reconcilePendingTransactions on POST /cray/reconciliation/run', async () => {
+  it('authorizes reconciliation before invoking the admin operation', async () => {
     service.reconcilePendingTransactions.mockResolvedValueOnce({
-      totalProcessed: 5,
-      resolvedCount: 3,
-      stuckCount: 1,
-      records: [],
+      totalProcessed: 5, resolvedCount: 3, stuckCount: 1, records: [],
     });
 
-    const result = await controller.runReconciliation('5', '45');
-    expect(result.totalProcessed).toBe(5);
+    await controller.runReconciliation(request, '5', '45');
+
+    expect(controller.authorizeMock).toHaveBeenCalledWith({
+      operation: 'admin.reconciliation.run', request, resource: {},
+    });
     expect(service.reconcilePendingTransactions).toHaveBeenCalledWith(5, 45);
   });
 });
-

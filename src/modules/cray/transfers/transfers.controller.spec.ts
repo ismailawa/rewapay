@@ -1,40 +1,41 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { TransfersController } from './transfers.controller';
+import type { Request } from 'express';
+import { CrayTransfersControllerBase } from './transfers.controller';
 import { TransfersService } from './transfers.service';
 import { CrayStatus } from '../enums/cray.enums';
+import type { CrayAuthorizationContext } from '../controllers';
 
-describe('TransfersController', () => {
-  let controller: TransfersController;
+class TestTransfersController extends CrayTransfersControllerBase {
+  readonly authorizeMock = jest.fn<void, [CrayAuthorizationContext]>();
+
+  constructor(service: TransfersService) {
+    super(service);
+  }
+
+  protected authorize(context: CrayAuthorizationContext): void {
+    this.authorizeMock(context);
+  }
+}
+
+describe('CrayTransfersControllerBase', () => {
+  const request = {} as Request;
+  let controller: TestTransfersController;
   let service: jest.Mocked<TransfersService>;
 
-  beforeEach(async () => {
-    const mockService = {
+  beforeEach(() => {
+    service = {
       initiateTransfer: jest.fn(),
       getTransferStatus: jest.fn(),
-    };
-
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [TransfersController],
-      providers: [
-        {
-          provide: TransfersService,
-          useValue: mockService,
-        },
-      ],
-    }).compile();
-
-    controller = module.get<TransfersController>(TransfersController);
-    service = module.get(TransfersService);
+    } as unknown as jest.Mocked<TransfersService>;
+    controller = new TestTransfersController(service);
   });
 
-  it('should call transfersService.initiateTransfer on POST /cray/transfers', async () => {
+  it('authorizes transfer creation without exposing destination or amount', async () => {
     service.initiateTransfer.mockResolvedValueOnce({
-      transferId: 'TRF_123',
-      status: CrayStatus.PENDING,
+      transferId: 'TRF_123', status: CrayStatus.PENDING,
     });
-
-    const result = await controller.initiateTransfer({
-      walletId: 'w_1',
+    const dto = {
+      customerId: 'customer-1',
+      walletId: 'wallet-1',
       amount: '500.00',
       reference: 'ref_1',
       destination: {
@@ -42,23 +43,29 @@ describe('TransfersController', () => {
         bankCode: '000013',
         accountName: 'TEST USER',
       },
-    });
+    };
 
-    expect(result.transferId).toBe('TRF_123');
-    expect(result.status).toBe(CrayStatus.PENDING);
-    expect(service.initiateTransfer).toHaveBeenCalledTimes(1);
+    await controller.initiateTransfer(dto, request);
+
+    expect(controller.authorizeMock).toHaveBeenCalledWith({
+      operation: 'transfers.create',
+      request,
+      resource: {
+        customerId: 'customer-1', walletId: 'wallet-1', reference: 'ref_1',
+      },
+    });
+    const serializedContext = JSON.stringify(controller.authorizeMock.mock.calls[0][0]);
+    expect(serializedContext).not.toContain('0123456789');
+    expect(serializedContext).not.toContain('500.00');
   });
 
-  it('should call transfersService.getTransferStatus on GET /cray/transfers/:reference', async () => {
+  it('authorizes transfer status by reference', async () => {
     service.getTransferStatus.mockResolvedValueOnce({
-      status: CrayStatus.SUCCESSFUL,
-      amount: '500.00',
+      status: CrayStatus.SUCCESSFUL, amount: '500.00',
     });
-
-    const result = await controller.getTransferStatus('ref_1');
-    expect(result.status).toBe(CrayStatus.SUCCESSFUL);
-    expect(result.amount).toBe('500.00');
-    expect(service.getTransferStatus).toHaveBeenCalledWith('ref_1');
+    await controller.getTransferStatus('ref_1', request);
+    expect(controller.authorizeMock).toHaveBeenCalledWith({
+      operation: 'transfers.read', request, resource: { reference: 'ref_1' },
+    });
   });
 });
-

@@ -1,4 +1,5 @@
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
+import { MODULE_METADATA } from '@nestjs/common/constants';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { CrayModule } from './cray.module';
 import { CRAY_MODULE_OPTIONS, CRAY_SERVICE } from './config/cray.constants';
@@ -34,5 +35,18 @@ describe('CrayModule', () => {
   it('supports async secured configuration', async () => {
     const module = await compile(Test.createTestingModule({ imports: [CrayModule.forRootAsync({ useFactory: () => TEST_CRAY_OPTIONS })] }));
     expect(module.get(CRAY_MODULE_OPTIONS).signingKeyId).toBe(TEST_CRAY_OPTIONS.signingKeyId);
+  });
+
+  it('registers zero HTTP controllers in every module registration mode', () => {
+    const staticControllers =
+      (Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, CrayModule) as unknown[]) || [];
+    const rootControllers = CrayModule.forRoot(TEST_CRAY_OPTIONS).controllers || [];
+    const asyncControllers = CrayModule.forRootAsync({
+      useFactory: () => TEST_CRAY_OPTIONS,
+    }).controllers || [];
+
+    expect(staticControllers).toEqual([]);
+    expect(rootControllers).toEqual([]);
+    expect(asyncControllers).toEqual([]);
   });
 });

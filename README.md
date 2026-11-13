@@ -1,12 +1,26 @@
-# `@rewapay/cray`
+# RewaPay Cray v1 NestJS Module
 
-NestJS integration for the signed [Cray Finance v1 API](https://docs.crayfi.com/v1). It supports provider-specific virtual accounts, hosted checkout, NGN payouts, refunds, verified webhooks, balance snapshots, and reconciliation.
+Source-integrated NestJS support for Cray v1 virtual accounts, hosted checkout, NGN payouts, refunds, verified webhooks, balances, persistence, and reconciliation.
 
-The complete implemented route inventory is maintained in [`docs/cray-api-v1-docs.md`](docs/cray-api-v1-docs.md). All active provider routes use the `/api/...` namespace; the module has no active `/api/v2/...` route.
+`CrayModule` is service-only: importing it creates no HTTP routes. An existing application can call the `ICrayService` facade directly or explicitly extend the unmounted controller bases and apply its own routes, guards, and authorization policy.
 
-## Required configuration
+The provider wire contract is recorded in [`docs/cray-api-v1-docs.md`](docs/cray-api-v1-docs.md). See [`docs/host-integration.md`](docs/host-integration.md) for the complete host integration and controller route reference.
 
-Cray v1 uses one merchant API key for every server-side call implemented here and for collection-webhook HMAC verification. Request signing is optional and adds `X-Signature` on top of Bearer authentication; encrypted sensitive-field storage remains mandatory.
+## Add it to an existing NestJS system
+
+This repository is currently distributed as source, not as a published npm package.
+
+1. Copy `src/modules/cray` into the host source tree.
+2. Copy `src/migrations/1794489600000-CrayV2SecurityRemediation.ts` without renaming its class or timestamp.
+3. Install the runtime dependencies not already present in the host:
+
+```bash
+npm install @nestjs/config @nestjs/event-emitter @nestjs/schedule @nestjs/typeorm axios class-transformer class-validator decimal.js pg typeorm uuid
+```
+
+The host must enable `experimentalDecorators`, `emitDecoratorMetadata`, and strict TypeScript compilation. Configure TypeORM before importing `CrayModule`, include the copied migration in the host migration configuration, and keep `synchronize: false` outside disposable tests.
+
+## Configuration
 
 ```dotenv
 CRAY_ENVIRONMENT=staging
@@ -16,80 +30,171 @@ CRAY_REQUEST_SIGNING_ENABLED=false
 # Required only when signing is enabled:
 CRAY_SIGNING_KEY_ID=
 CRAY_SIGNING_PRIVATE_KEY=
-CRAY_DATA_ENCRYPTION_KEY=secret_from_your_key_manager
-DATABASE_URL=postgresql://...
+CRAY_DATA_ENCRYPTION_KEY=64_hex_char_secret_from_your_key_manager
+DATABASE_URL=postgresql://user:password@host:5432/database
 ```
 
-The module fails during startup if the v1 merchant API key or encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Signed `collection.*` webhooks use the same merchant API key; unsigned v1 `payin` and `payout` events are confirmed through authoritative API requery.
+The current provider setup uses staging credentials with the production gateway URL. `CRAY_API_KEY`, `CRAY_DATA_ENCRYPTION_KEY`, and `DATABASE_URL` are required. Signing key ID/private key are required only when request signing is enabled.
 
-For the current Cray-provided setup, keep the environment and merchant credentials in staging while explicitly overriding only `CRAY_BASE_URL` to `https://pay.connectramp.com`. This is intentional; the environment label does not select the URL when an explicit base URL is supplied.
-
-`CRAYFI_PUBLIC_KEY` and `CRAYFI_SECRET_KEY` are credentials for Cray payment-initialization/verification endpoints outside this module's implemented product scope. `CRAYFI_MERCHANT_KEY` is not read as a separate runtime variable: place the staging merchant API-key value in `CRAY_API_KEY`.
-
-## Registration
-
-The host application must configure TypeORM before importing `CrayModule`.
+Register TypeORM and Cray in the host module:
 
 ```ts
-CrayModule.forRoot({
-  environment: 'staging',
-  baseUrl: 'https://pay.connectramp.com',
-  apiKey: process.env.CRAY_API_KEY!,
-  requestSigningEnabled: process.env.CRAY_REQUEST_SIGNING_ENABLED === 'true',
-  signingKeyId: process.env.CRAY_SIGNING_KEY_ID || '',
-  signingPrivateKey: process.env.CRAY_SIGNING_PRIVATE_KEY || '',
-  dataEncryptionKey: process.env.CRAY_DATA_ENCRYPTION_KEY!,
-  httpTimeoutMs: 15_000,
-  maxRetries: 3,
-  generalRpm: 60,
-  collectionPayoutRpm: 30,
-});
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        url: config.getOrThrow<string>('DATABASE_URL'),
+        autoLoadEntities: true,
+        synchronize: false,
+      }),
+    }),
+    CrayModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        environment: config.get('CRAY_ENVIRONMENT', 'staging'),
+        baseUrl: config.get('CRAY_BASE_URL', 'https://pay.connectramp.com'),
+        apiKey: config.getOrThrow('CRAY_API_KEY'),
+        requestSigningEnabled:
+          config.get('CRAY_REQUEST_SIGNING_ENABLED', 'false') === 'true',
+        signingKeyId: config.get('CRAY_SIGNING_KEY_ID', ''),
+        signingPrivateKey: config.get('CRAY_SIGNING_PRIVATE_KEY', ''),
+        dataEncryptionKey: config.getOrThrow('CRAY_DATA_ENCRYPTION_KEY'),
+      }),
+    }),
+  ],
+})
+export class PaymentsModule {}
 ```
 
-Inject `CRAY_SERVICE` as `ICrayService`. Funding requires real customer details:
+Run the copied migration using the host application's normal TypeORM migration command before serving traffic.
+
+## Recommended: call the service facade
+
+Inject the stable `CRAY_SERVICE` token and type it as `ICrayService`:
 
 ```ts
-await cray.createFundingSession({
-  customerId: 'customer-id',
-  walletId: 'wallet-id',
-  amount: '100.00',
-  reference: 'unique-reference',
-  method: 'transfer',
-  customer: { name: 'Jane Doe', email: 'jane@example.com' },
-  callbackUrl: 'https://merchant.example/payments/return',
-});
+@Injectable()
+export class WalletPaymentsService {
+  constructor(
+    @Inject(CRAY_SERVICE) private readonly cray: ICrayService,
+  ) {}
+
+  createAccount(customerId: string, email: string, accountName: string) {
+    return this.cray.createVirtualAccount({
+      customerId,
+      email,
+      accountName,
+      provider: 'Bloc',
+      accountType: 'Permanent',
+    });
+  }
+
+  fundWallet(customerId: string, walletId: string, reference: string) {
+    return this.cray.createFundingSession({
+      customerId,
+      walletId,
+      reference,
+      amount: '1000.00',
+      method: 'transfer',
+      customer: { name: 'Jane Doe', email: 'jane@example.com' },
+      callbackUrl: 'https://merchant.example/payments/return',
+    });
+  }
+}
 ```
 
-Only `POST /cray/webhooks` is registered as a public controller. Bank, payout, checkout, balance, and reconciliation operations are exposed through the in-process service so the host controls authorization.
+The facade also exposes bank listing/validation, transfer initiation/status, refund initiation/status, funding status, and platform balance. All monetary amounts are two-decimal major-unit strings.
 
-## Database and verification
+Use `EventEmitter2` listeners for verified asynchronous outcomes such as `funding.confirmed`, `funding.failed`, `transfer.completed`, `transfer.failed`, and `refund.completed`.
 
-Start the local PostgreSQL infrastructure, then run the security backfill migration with `CRAY_DATA_ENCRYPTION_KEY` set:
+## Optional: expose protected host APIs
+
+Controller bases are exported but have no class-level `@Controller` decorator and are never registered by `CrayModule`. A host must deliberately provide the route, guard, authorization hook, constructor, and module registration:
+
+```ts
+@Controller('api/payments/cray/transfers')
+@UseGuards(JwtAuthGuard)
+export class ProtectedCrayTransfersController extends CrayTransfersControllerBase {
+  constructor(
+    transfersService: TransfersService,
+    private readonly access: PaymentsAccessPolicy,
+  ) {
+    super(transfersService);
+  }
+
+  protected authorize(context: CrayAuthorizationContext): Promise<void> {
+    return this.access.assertAllowed(context);
+  }
+}
+
+@Module({
+  controllers: [ProtectedCrayTransfersController],
+  providers: [PaymentsAccessPolicy],
+})
+export class ProtectedPaymentsHttpModule {}
+```
+
+Register the subclass in the same host module that imports the configured dynamic `CrayModule`, or import a host wrapper module that re-exports that configured module. Do not import an unconfigured second copy merely to access its providers.
+
+The authorization policy must compare `context.resource.customerId` and `walletId` with the authenticated principal and enforce tenant/role ownership. Authentication alone is insufficient. Never trust caller-supplied customer or wallet IDs without this comparison; override a handler or write a host controller around `ICrayService` when identity must be derived rather than accepted.
+
+Authorization contexts deliberately exclude amounts, account numbers, BVN/NIN, card data, and raw bodies.
+
+## Explicit webhook endpoint
+
+The webhook base is also unmounted. Register it separately under an integration route. Do not require a customer JWT, because Cray is the caller; use an ingress/IP/throttling policy and retain the built-in HMAC or authoritative requery verification:
+
+```ts
+@Controller('integrations/cray/webhooks')
+@UseGuards(CrayWebhookRateLimitGuard)
+export class HostCrayWebhooksController extends CrayWebhooksControllerBase {
+  constructor(
+    webhooksService: WebhooksService,
+    private readonly ingress: CrayWebhookIngressPolicy,
+  ) {
+    super(webhooksService);
+  }
+
+  protected authorizeWebhookIngress(
+    context: CrayWebhookIngressContext,
+  ): Promise<void> {
+    return this.ingress.assertAllowed(context.clientIp);
+  }
+}
+```
+
+Register this subclass in the host module's `controllers` array. `WebhooksService` still verifies signed `collection.*` events with the merchant key and confirms unsigned `payin`/`payout` notifications through Cray before emitting terminal domain events.
+
+Enable global request validation in the host:
+
+```ts
+app.useGlobalPipes(new ValidationPipe({
+  transform: true,
+  whitelist: true,
+  forbidNonWhitelisted: true,
+}));
+```
+
+## Verification
 
 ```bash
-cp .env.example .env
-npm run infra:up
-npm run migration:run
 npm test -- --runInBand
 npm run build
 npm run test:e2e -- --runInBand
 ```
 
-`compose.yaml` starts PostgreSQL 16 with a persistent named volume, readiness health check, and the UUID extension required by the migration. Use `npm run infra:logs` to follow database logs and `npm run infra:down` to stop the container without deleting its data.
-
-The local database is published on host port `5433` to avoid collisions with a system PostgreSQL instance on the conventional `5432` port.
-
-The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts historical webhook payloads, and creates refund persistence. Live contract verification requires the real v1 staging merchant API key configured against Cray's instructed production gateway; a registered signing key is additionally required when signing is enabled for that merchant.
-
-The normal live suite is read-only. It requires staging configuration while pinning the provider URL to the production gateway:
+The normal live suite is read-only and uses staging configuration against Cray's instructed production gateway:
 
 ```bash
 npm run test:e2e:live
 ```
 
-Live checks allow the provider request to reach its configured HTTP timeout instead of Jest's five-second default. Override the test allowance with `CRAY_LIVE_E2E_TIMEOUT_MS` when needed; it defaults to `CRAY_HTTP_TIMEOUT_MS + 5000`.
-
-Virtual-account creation has a separate explicit opt-in. This command uses the same staging configuration and production URL, invokes the real `AccountsService` implementation, and creates a permanent Bloc account with a fresh reference on every run. It verifies request mapping, Cray response normalization, encryption, and persistence lookup:
+Permanent virtual-account creation remains a separate, explicit mutation:
 
 ```bash
 npm run test:e2e:live:virtual-account

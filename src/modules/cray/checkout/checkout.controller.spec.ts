@@ -1,83 +1,87 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { CheckoutController } from './checkout.controller';
+import type { Request } from 'express';
+import { CrayCheckoutControllerBase } from './checkout.controller';
 import { CheckoutService } from './checkout.service';
 import { CrayStatus } from '../enums/cray.enums';
+import type { CrayAuthorizationContext } from '../controllers';
 
-describe('CheckoutController', () => {
-  let controller: CheckoutController;
+class TestCheckoutController extends CrayCheckoutControllerBase {
+  readonly authorizeMock = jest.fn<void, [CrayAuthorizationContext]>();
+
+  constructor(service: CheckoutService) {
+    super(service);
+  }
+
+  protected authorize(context: CrayAuthorizationContext): void {
+    this.authorizeMock(context);
+  }
+}
+
+describe('CrayCheckoutControllerBase', () => {
+  const request = {} as Request;
+  let controller: TestCheckoutController;
   let service: jest.Mocked<CheckoutService>;
 
-  beforeEach(async () => {
-    const mockService = {
+  beforeEach(() => {
+    service = {
       createCheckoutSession: jest.fn(),
       getCheckoutStatus: jest.fn(),
       queryTransaction: jest.fn(),
       chargeCard: jest.fn(),
-    };
-
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [CheckoutController],
-      providers: [{ provide: CheckoutService, useValue: mockService }],
-    }).compile();
-
-    controller = module.get<CheckoutController>(CheckoutController);
-    service = module.get(CheckoutService);
+    } as unknown as jest.Mocked<CheckoutService>;
+    controller = new TestCheckoutController(service);
   });
 
-  it('should call checkoutService.createCheckoutSession on POST /cray/checkout', async () => {
+  it('authorizes checkout creation without exposing amount or customer PII', async () => {
     service.createCheckoutSession.mockResolvedValueOnce({
       sessionId: 'PAYCODE123',
       paymentUrl: 'https://checkout.connectramp.com/pay/PAYCODE123',
-      expiresAt: '',
     });
-
-    const result = await controller.createCheckoutSession({
+    const dto = {
       amount: '500.00',
       currency: 'NGN',
       reference: 'ctrl_ref_001',
-      defaultPaymentMethod: 'transfer',
-      feeBearer: 'merchant',
+      defaultPaymentMethod: 'transfer' as const,
+      feeBearer: 'merchant' as const,
       customer: { name: 'John Doe', email: 'john@example.com' },
-    });
+      customerId: 'customer-1',
+      walletId: 'wallet-1',
+    };
 
-    expect(result.paymentUrl).toBe('https://checkout.connectramp.com/pay/PAYCODE123');
-    expect(result.sessionId).toBe('PAYCODE123');
-    expect(service.createCheckoutSession).toHaveBeenCalledTimes(1);
+    await controller.createCheckoutSession(dto, request);
+
+    expect(controller.authorizeMock).toHaveBeenCalledWith({
+      operation: 'checkout.create',
+      request,
+      resource: {
+        customerId: 'customer-1',
+        walletId: 'wallet-1',
+        reference: 'ctrl_ref_001',
+      },
+    });
+    const serializedContext = JSON.stringify(controller.authorizeMock.mock.calls[0][0]);
+    expect(serializedContext).not.toContain('500.00');
+    expect(serializedContext).not.toContain('john@example.com');
   });
 
-  it('should call checkoutService.getCheckoutStatus on GET /cray/checkout/:reference', async () => {
+  it('authorizes checkout status, query, and direct charge identifiers', async () => {
     service.getCheckoutStatus.mockResolvedValueOnce({
-      status: CrayStatus.SUCCESSFUL,
-      amount: '500.00',
-      confirmedAt: '2026-11-10T18:00:00.000Z',
+      status: CrayStatus.SUCCESSFUL, amount: '500.00',
     });
+    service.queryTransaction.mockResolvedValueOnce({ status: 'Successful' });
+    service.chargeCard.mockResolvedValueOnce({ status: 'redirect_auth' });
 
-    const result = await controller.getCheckoutStatus('ctrl_ref_001');
+    await controller.getCheckoutStatus('checkout-ref', request);
+    await controller.queryTransaction('query-ref', request);
+    await controller.chargeCard('TXN_123', request);
 
-    expect(result.status).toBe(CrayStatus.SUCCESSFUL);
-    expect(result.amount).toBe('500.00');
-    expect(service.getCheckoutStatus).toHaveBeenCalledWith('ctrl_ref_001');
-  });
-
-  it('should call checkoutService.queryTransaction on GET /cray/checkout/query/:reference', async () => {
-    service.queryTransaction.mockResolvedValueOnce({
-      status: 'Successful',
-      reference: 'ctrl_ref_002',
+    expect(controller.authorizeMock).toHaveBeenNthCalledWith(1, {
+      operation: 'checkout.read', request, resource: { reference: 'checkout-ref' },
     });
-
-    const result = await controller.queryTransaction('ctrl_ref_002');
-    expect(result).toEqual({ status: 'Successful', reference: 'ctrl_ref_002' });
-    expect(service.queryTransaction).toHaveBeenCalledWith('ctrl_ref_002');
-  });
-
-  it('should call checkoutService.chargeCard on POST /cray/checkout/charge', async () => {
-    service.chargeCard.mockResolvedValueOnce({
-      status: 'redirect_auth',
-      reference: 'ctrl_ref_003',
+    expect(controller.authorizeMock).toHaveBeenNthCalledWith(2, {
+      operation: 'checkout.query', request, resource: { reference: 'query-ref' },
     });
-
-    const result = await controller.chargeCard('TXN_123');
-    expect(result).toEqual({ status: 'redirect_auth', reference: 'ctrl_ref_003' });
-    expect(service.chargeCard).toHaveBeenCalledWith('TXN_123');
+    expect(controller.authorizeMock).toHaveBeenNthCalledWith(3, {
+      operation: 'checkout.charge', request, resource: { transactionId: 'TXN_123' },
+    });
   });
 });

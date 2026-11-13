@@ -2,6 +2,8 @@
 
 The active implementation is validated against [`cray-api-v1-docs.md`](./cray-api-v1-docs.md), sourced from [Cray v1](https://docs.crayfi.com/v1). The v2 snapshot is retained only as historical migration context and is not a runtime contract. Active v1 provider paths use `/api/...`; none use `/api/v2/...`.
 
+For installation into an existing NestJS system, service injection, protected controller extension, and explicit webhook registration, use [`host-integration.md`](./host-integration.md). Importing `CrayModule` mounts no HTTP routes.
+
 ## Implemented provider contracts
 
 - Accounts and collections: `POST /api/virtual-accounts/create`, `POST /api/corporate-accounts/create`, `POST /api/checkout/initialize`, `GET /api/checkout/query/{reference}`, `GET /api/query/{customer_reference}`, and `POST /api/charge`.

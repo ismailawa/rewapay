@@ -1,62 +1,60 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { BanksController } from './banks.controller';
+import type { Request } from 'express';
+import { CrayBanksControllerBase } from './banks.controller';
 import { BanksService } from './banks.service';
+import type { CrayAuthorizationContext } from '../controllers';
 
-describe('BanksController', () => {
-  let controller: BanksController;
+class TestBanksController extends CrayBanksControllerBase {
+  readonly authorizeMock = jest.fn<void, [CrayAuthorizationContext]>();
+
+  constructor(service: BanksService) {
+    super(service);
+  }
+
+  protected authorize(context: CrayAuthorizationContext): void {
+    this.authorizeMock(context);
+  }
+}
+
+describe('CrayBanksControllerBase', () => {
+  const request = {} as Request;
+  let controller: TestBanksController;
   let service: jest.Mocked<BanksService>;
 
-  beforeEach(async () => {
-    const mockService = {
+  beforeEach(() => {
+    service = {
       listBanks: jest.fn(),
       validateBankAccount: jest.fn(),
-    };
-
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [BanksController],
-      providers: [
-        {
-          provide: BanksService,
-          useValue: mockService,
-        },
-      ],
-    }).compile();
-
-    controller = module.get<BanksController>(BanksController);
-    service = module.get(BanksService);
+    } as unknown as jest.Mocked<BanksService>;
+    controller = new TestBanksController(service);
   });
 
-  it('should call banksService.listBanks on GET /cray/banks', async () => {
+  it('authorizes and lists banks with optional refresh', async () => {
     service.listBanks.mockResolvedValueOnce([{ code: '000014', name: 'ACCESS BANK' }]);
-
-    const result = await controller.getBanks();
-    expect(result).toEqual([{ code: '000014', name: 'ACCESS BANK' }]);
-    expect(service.listBanks).toHaveBeenCalledWith(false);
-  });
-
-  it('should call banksService.listBanks with forceRefresh=true when query param is present', async () => {
-    service.listBanks.mockResolvedValueOnce([{ code: '000014', name: 'ACCESS BANK' }]);
-
-    await controller.getBanks('true');
+    await controller.getBanks('true', request);
+    expect(controller.authorizeMock).toHaveBeenCalledWith({
+      operation: 'banks.list', request, resource: {},
+    });
     expect(service.listBanks).toHaveBeenCalledWith(true);
   });
 
-  it('should call banksService.validateBankAccount on POST /cray/banks/verify', async () => {
+  it('excludes the account number from validation authorization context', async () => {
     service.validateBankAccount.mockResolvedValueOnce({
-      accountName: 'JANE DOE',
-      refId: 'sess_123',
+      accountName: 'JANE DOE', refId: 'sess_123',
     });
-
-    const result = await controller.verifyAccount({
+    const dto = {
       accountNumber: '0123456789',
       bankCode: '000013',
-    });
+      customerId: 'customer-1',
+    };
 
-    expect(result).toEqual({ accountName: 'JANE DOE', refId: 'sess_123' });
-    expect(service.validateBankAccount).toHaveBeenCalledWith({
-      accountNumber: '0123456789',
-      bankCode: '000013',
+    await controller.verifyAccount(dto, request);
+
+    expect(controller.authorizeMock).toHaveBeenCalledWith({
+      operation: 'banks.validate',
+      request,
+      resource: { customerId: 'customer-1', bankCode: '000013' },
     });
+    expect(JSON.stringify(controller.authorizeMock.mock.calls[0][0])).not.toContain('0123456789');
+    expect(service.validateBankAccount).toHaveBeenCalledWith(dto);
   });
 });
-

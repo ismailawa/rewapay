@@ -86,7 +86,7 @@
 
 - [x] **Task 7: Webhook Processing & Cryptographic Verification**
   - **Scope:** Receive webhooks, verify signatures, persist events, and emit internal domain events.
-  - **Endpoints:** `POST /cray/webhooks`.
+  - **Endpoints:** Host-selected `POST` route through `CrayWebhooksControllerBase`; no route is mounted by `CrayModule`.
   - **Acceptance Criteria:**
     - [x] `collection.*` events verified using Base64 HMAC-SHA256 (`hash` over `JSON_string(data)`) and the v1 merchant API key.
     - [x] Unsigned v1 `payin` and `payout` events verified through authoritative server-side transaction requery before event emission.
@@ -172,3 +172,14 @@
   - [x] Update refunds to `POST /api/refund/initiate` and `GET /api/refund/query/{reference}`.
   - [x] Remove `/api/v2` from all active implementation code, tests, fixtures, comments, and v1 documentation.
   - [x] Retain the historical Task 11 record and applied TypeORM migration filename/class to preserve implementation and migration history.
+
+- [x] **Task 15: Secure Host Integration & Opt-In Controllers**
+  - [x] Make `CrayModule`, `forRoot`, and `forRootAsync` service-only with zero registered HTTP controllers.
+  - [x] Export unmounted account, bank, checkout, transfer, refund, admin, and webhook controller bases.
+  - [x] Require host authorization hooks for every operational/admin handler and a separate webhook-ingress hook.
+  - [x] Limit authorization contexts to safe identifiers; exclude raw bodies, amounts, account numbers, KYC, and card data.
+  - [x] Separate admin balance/reconciliation routes from customer/payment adapters.
+  - [x] Keep collection HMAC and unsigned payin/payout authoritative verification after host webhook ingress checks.
+  - [x] Document source installation, TypeORM/migration setup, facade injection, protected subclasses, ownership checks, validation, domain events, and explicit webhook registration.
+  - [x] Prove former `/cray/*` routes return 404 by default and host routes require guards and authorization hooks.
+  - [x] Pass unit, build, and complete database/HTTP E2E verification.
