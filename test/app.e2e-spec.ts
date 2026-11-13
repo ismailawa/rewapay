@@ -7,6 +7,8 @@ import { AppModule } from '../src/app.module';
 import { AppController } from '../src/app.controller';
 import { AppService } from '../src/app.service';
 import { CrayModule } from '../src/modules/cray/cray.module';
+import { CRAY_MODULE_OPTIONS } from '../src/modules/cray/config/cray.constants';
+import { CrayModuleOptions } from '../src/modules/cray/config/cray.config';
 import { TEST_CRAY_OPTIONS } from '../src/modules/cray/testing/test-options';
 import { CrayRefund } from '../src/modules/cray/entities/cray-refund.entity';
 import { IdempotencyService } from '../src/modules/cray/idempotency/idempotency.service';
@@ -87,16 +89,29 @@ describe('Cray module database-backed e2e', () => {
 
   it('starts with real TypeORM repositories and serves the host app', async () => {
     expect(moduleFixture.get(AppController).getHello()).toBe('Hello World!');
-    const repo = moduleFixture.get<Repository<CrayRefund>>(getRepositoryToken(CrayRefund));
-    await repo.save(repo.create({ reference: 'payment_1', providerReference: 'refund_1', status: 'PENDING' }));
-    expect((await repo.findOneByOrFail({ reference: 'payment_1' })).providerReference).toBe('refund_1');
+    const repo = moduleFixture.get<Repository<CrayRefund>>(
+      getRepositoryToken(CrayRefund),
+    );
+    await repo.save(
+      repo.create({
+        reference: 'payment_1',
+        providerReference: 'refund_1',
+        status: 'PENDING',
+      }),
+    );
+    expect(
+      (await repo.findOneByOrFail({ reference: 'payment_1' }))
+        .providerReference,
+    ).toBe('refund_1');
     expect(moduleFixture.get(DataSource).isInitialized).toBe(true);
   });
 
   it('atomically permits only one financial execution for a concurrent key', async () => {
     const idempotency = moduleFixture.get(IdempotencyService);
     let release!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     let executions = 0;
     const options = {
       key: 'e2e-concurrent-transfer',
@@ -111,7 +126,9 @@ describe('Cray module database-backed e2e', () => {
 
     const first = idempotency.execute(options);
     await new Promise((resolve) => setImmediate(resolve));
-    await expect(idempotency.execute(options)).rejects.toBeInstanceOf(CrayException);
+    await expect(idempotency.execute(options)).rejects.toBeInstanceOf(
+      CrayException,
+    );
     release();
     await expect(first).resolves.toEqual({ status: 'PENDING' });
     expect(executions).toBe(1);
@@ -120,12 +137,30 @@ describe('Cray module database-backed e2e', () => {
 
 describe('Host AppModule database wiring e2e', () => {
   let moduleFixture: TestingModule;
+  const environmentKeys = [
+    'DATABASE_URL',
+    'DATABASE_SSL',
+    'CRAY_ENVIRONMENT',
+    'CRAY_BASE_URL',
+    'CRAY_API_KEY',
+    'CRAY_REQUEST_SIGNING_ENABLED',
+    'CRAY_SIGNING_KEY_ID',
+    'CRAY_SIGNING_PRIVATE_KEY',
+    'CRAY_DATA_ENCRYPTION_KEY',
+  ] as const;
+  const originalEnvironment = Object.fromEntries(
+    environmentKeys.map((key) => [key, process.env[key]]),
+  );
 
   beforeAll(async () => {
     process.env.DATABASE_URL = 'postgresql://unused-by-overridden-test-source';
     process.env.DATABASE_SSL = 'false';
-    process.env.CRAY_API_KEY = 'test_api_key';
+    process.env.CRAY_ENVIRONMENT = 'staging';
+    delete process.env.CRAY_BASE_URL;
+    process.env.CRAY_API_KEY = 'lrs_e2e_test_key';
     process.env.CRAY_REQUEST_SIGNING_ENABLED = 'false';
+    delete process.env.CRAY_SIGNING_KEY_ID;
+    delete process.env.CRAY_SIGNING_PRIVATE_KEY;
     process.env.CRAY_DATA_ENCRYPTION_KEY =
       'test-data-encryption-key-at-least-32-bytes';
 
@@ -139,11 +174,25 @@ describe('Host AppModule database wiring e2e', () => {
 
   afterAll(async () => {
     if (moduleFixture) await moduleFixture.close();
+    for (const key of environmentKeys) {
+      const value = originalEnvironment[key];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
 
   it('constructs the host app, DataSource, and Cray repositories together', async () => {
     expect(moduleFixture.get(DataSource).isInitialized).toBe(true);
     expect(moduleFixture.get(AppController).getHello()).toBe('Hello World!');
+
+    expect(moduleFixture.get<CrayModuleOptions>(CRAY_MODULE_OPTIONS)).toEqual(
+      expect.objectContaining({
+        environment: 'staging',
+        apiKey: 'lrs_e2e_test_key',
+        dataEncryptionKey: 'test-data-encryption-key-at-least-32-bytes',
+        requestSigningEnabled: false,
+      }),
+    );
 
     const repo = moduleFixture.get<Repository<CrayRefund>>(
       getRepositoryToken(CrayRefund),

@@ -147,5 +147,6 @@
   - [x] Verify `collection.*` HMACs with the merchant Secret Key and confirm unsigned `payin`/`payout` events by requery.
   - [x] Keep `ICrayService`, persistence, financial idempotency, ambiguous-timeout quarantine, encryption, and redaction behavior intact.
   - [x] Update unit, acceptance, E2E, live-contract, README, status, and workflow documentation; identify required, conditional, and defaulted v1 variables in `.env.example`.
+  - [x] Keep host and live E2E configuration aligned with required variables, environment-derived gateways, conditional signing, and the production safety guard.
   - [x] Pass unit, build, and database-backed E2E verification.
   - [ ] Pass the opt-in v1 staging contract suite with a valid `lrs_` Secret Key.
