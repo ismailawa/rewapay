@@ -117,7 +117,7 @@ describe('CrayApiClient', () => {
     expect(headers['X-Signature']).toBeUndefined();
   });
 
-  it('should use the same v1 Secret Key for payout requests', async () => {
+  it('should use the same v1 merchant API key for payout requests', async () => {
     const client = new CrayApiClient(createOptions());
     const requestSpy = jest.spyOn(client.axios, 'request').mockResolvedValue({ data: {} } as never);
     await client.get('/api/payout/banks');

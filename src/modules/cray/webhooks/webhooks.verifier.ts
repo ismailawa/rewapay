@@ -13,7 +13,7 @@ export class WebhooksVerifier {
    *
    * @param data The "data" object from the webhook body
    * @param expectedHash The "hash" value from the webhook body
-   * @param secret The v1 merchant Secret Key
+   * @param secret The v1 merchant API key
    */
   verifyHmacSignature(
     data: Record<string, unknown>,
@@ -21,13 +21,16 @@ export class WebhooksVerifier {
     secret: string | undefined,
   ): boolean {
     if (!expectedHash || !secret) {
-      this.logger.warn('Missing expectedHash or webhook secret for HMAC verification');
+      this.logger.warn(
+        'Missing expectedHash or webhook secret for HMAC verification',
+      );
       return false;
     }
 
     try {
       // Serialize the data object to JSON (as Cray specifies)
-      const serializedData = typeof data === 'string' ? data : JSON.stringify(data);
+      const serializedData =
+        typeof data === 'string' ? data : JSON.stringify(data);
 
       const hmac = crypto.createHmac('sha256', secret);
       hmac.update(serializedData);
@@ -42,7 +45,9 @@ export class WebhooksVerifier {
 
       return crypto.timingSafeEqual(expectedBuffer, computedBuffer);
     } catch (err) {
-      this.logger.error(`Error verifying webhook signature: ${(err as Error).message}`);
+      this.logger.error(
+        `Error verifying webhook signature: ${(err as Error).message}`,
+      );
       return false;
     }
   }
@@ -71,7 +76,8 @@ export class WebhooksVerifier {
       const normalizedAllowed = allowed.trim();
       return (
         normalizedAllowed === normalizedIp ||
-        (normalizedAllowed === 'localhost' && (normalizedIp === '127.0.0.1' || normalizedIp === '::1'))
+        (normalizedAllowed === 'localhost' &&
+          (normalizedIp === '127.0.0.1' || normalizedIp === '::1'))
       );
     });
 

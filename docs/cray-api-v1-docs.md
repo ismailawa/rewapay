@@ -10,8 +10,10 @@ This snapshot records the v1 wire contract used by the implementation. The offic
 
 - Staging: `https://dev-gateman.v3.connectramp.com`
 - Production: `https://pay.connectramp.com`
-- Every server-side request sends `Authorization: Bearer <lrs_secret_key>`.
-- Cray v1 uses one merchant Secret Key for collections, payouts, refunds, balance calls, request authentication, and collection-webhook HMAC verification.
+- Every implemented server-side request sends `Authorization: Bearer <merchant_api_key>`.
+- The official `crayfi` Node SDK v1.0.5 calls this value `CRAY_API_KEY` and uses it for the same ConnectRamp gateways and `/api` routes implemented here.
+- `CRAYFI_PUBLIC_KEY` and `CRAYFI_SECRET_KEY` apply to separate payment-initialization/verification endpoints outside this module's scope. They are not required for balance, virtual accounts, payouts, hosted checkout, queries, or refunds.
+- RewaPay maps the staging merchant API-key value to `CRAY_API_KEY`; it does not support legacy environment aliases.
 
 ## Request signing
 
@@ -64,7 +66,7 @@ Official vectors:
 
 ## Webhooks
 
-- `collection.*` events include `hash`, calculated as Base64 HMAC-SHA256 over `JSON.stringify(data)` with the merchant Secret Key. There is no separate webhook key or key-hint header.
+- `collection.*` events include `hash`, calculated as Base64 HMAC-SHA256 over `JSON.stringify(data)` with the merchant API key. There is no separate webhook key or key-hint header.
 - `payin` and `payout` events are unsigned and contain no `hash`. Treat them only as notifications: confirm `payin` with `GET /api/query/{reference}` and `payout` with `GET /api/payout/requery/{reference}` before emitting a terminal domain event.
 - Deduplicate exact deliveries and redact account numbers, BVN, NIN, OTP, and card data before persistence.
 

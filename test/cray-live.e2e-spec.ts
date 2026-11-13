@@ -25,9 +25,6 @@ function requiredEnvironment(
   if (!value || /replace_with/i.test(value)) {
     throw new Error(`${name} must contain a real value.`);
   }
-  if (name.endsWith('_API_KEY') && !value.startsWith('lrs_')) {
-    throw new Error(`${name} must be a Cray Secret Key beginning with lrs_.`);
-  }
   return value;
 }
 
@@ -85,7 +82,7 @@ export function buildLiveOptions(
 
 describe('Cray live E2E environment contract', () => {
   const required = {
-    CRAY_API_KEY: 'lrs_live_test_key',
+    CRAY_API_KEY: 'staging_merchant_api_key',
     CRAY_DATA_ENCRYPTION_KEY: 'test-encryption-key-at-least-32-bytes',
   };
 
@@ -156,7 +153,7 @@ describeLive('Cray sandbox live contract e2e', () => {
     client = new CrayApiClient(buildLiveOptions());
   });
 
-  it('authenticates with the v1 Secret Key and fetches wallet balances', async () => {
+  it('authenticates with the v1 merchant API key and fetches wallet balances', async () => {
     const response = await client.get<CrayEnvelope>('/api/balance');
 
     expect(response.data).toBeDefined();
@@ -166,7 +163,7 @@ describeLive('Cray sandbox live contract e2e', () => {
     ).toBe(true);
   });
 
-  it('uses the same v1 Secret Key to fetch payout banks', async () => {
+  it('uses the same v1 merchant API key to fetch payout banks', async () => {
     const response = await client.get<CrayEnvelope>('/api/payout/banks');
 
     expect(Array.isArray(response.data)).toBe(true);

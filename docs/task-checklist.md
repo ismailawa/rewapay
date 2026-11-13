@@ -88,7 +88,7 @@
   - **Scope:** Receive webhooks, verify signatures, persist events, and emit internal domain events.
   - **Endpoints:** `POST /cray/webhooks`.
   - **Acceptance Criteria:**
-    - [x] `collection.*` events verified using Base64 HMAC-SHA256 (`hash` over `JSON_string(data)`) and the v1 merchant Secret Key.
+    - [x] `collection.*` events verified using Base64 HMAC-SHA256 (`hash` over `JSON_string(data)`) and the v1 merchant API key.
     - [x] Unsigned v1 `payin` and `payout` events verified through authoritative server-side transaction requery before event emission.
     - [x] Emits domain events (`funding.confirmed`, `transfer.completed`, etc.) via `EventEmitter2`.
     - [x] Persists redacted events in `cray_webhook_events` with exact-delivery fingerprinting.
@@ -144,9 +144,10 @@
   - [x] Use the ConnectRamp v1 staging and production gateways and exact `/api` endpoint prefixes.
   - [x] Preserve the documented `/api/v2` segments for corporate-account and refund operations.
   - [x] Implement v1 query canonicalization, including plus-to-space, scalar last-value, and indexed-array rules.
-  - [x] Verify `collection.*` HMACs with the merchant Secret Key and confirm unsigned `payin`/`payout` events by requery.
+  - [x] Verify `collection.*` HMACs with the merchant API key and confirm unsigned `payin`/`payout` events by requery.
   - [x] Keep `ICrayService`, persistence, financial idempotency, ambiguous-timeout quarantine, encryption, and redaction behavior intact.
   - [x] Update unit, acceptance, E2E, live-contract, README, status, and workflow documentation; identify required, conditional, and defaulted v1 variables in `.env.example`.
   - [x] Keep host and live E2E configuration aligned with required variables, conditional signing, and an immutable staging-only gateway guard.
   - [x] Pass unit, build, and database-backed E2E verification.
-  - [ ] Pass the opt-in v1 staging contract suite with a valid `lrs_` Secret Key.
+  - [x] Verify against the official `crayfi` SDK that implemented v1 routes use one Bearer merchant API key and do not require payment public/verification keys.
+  - [ ] Pass the opt-in v1 staging contract suite with a valid staging merchant API key.

@@ -110,7 +110,7 @@ export class CrayApiClient {
     config.url = pathWithQuery;
     delete config.params;
 
-    // 4. Cray v1 uses one merchant Secret Key for every server-side endpoint.
+    // 4. Cray v1 uses one merchant API key for every server-side endpoint.
     const headers: Record<string, string> = {
       ...(config.headers as Record<string, string>),
       Authorization: `Bearer ${this.options.apiKey}`,

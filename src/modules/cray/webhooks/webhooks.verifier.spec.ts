@@ -3,7 +3,7 @@ import { WebhooksVerifier } from './webhooks.verifier';
 
 describe('WebhooksVerifier', () => {
   let verifier: WebhooksVerifier;
-  const secret = 'lrs_test_merchant_secret_key';
+  const secret = 'test_merchant_api_key';
 
   beforeEach(() => {
     verifier = new WebhooksVerifier();
@@ -16,9 +16,15 @@ describe('WebhooksVerifier', () => {
       status: 'Successful',
     };
 
-    function computeValidHash(data: Record<string, unknown>, key: string): string {
+    function computeValidHash(
+      data: Record<string, unknown>,
+      key: string,
+    ): string {
       const serialized = JSON.stringify(data);
-      return crypto.createHmac('sha256', key).update(serialized).digest('base64');
+      return crypto
+        .createHmac('sha256', key)
+        .update(serialized)
+        .digest('base64');
     }
 
     it('should return true for valid HMAC signature', () => {
@@ -30,29 +36,45 @@ describe('WebhooksVerifier', () => {
     it('should return false for altered data (tamper defense)', () => {
       const validHash = computeValidHash(dataObj, secret);
       const tamperedData = { ...dataObj, amount: '99999.00' };
-      const result = verifier.verifyHmacSignature(tamperedData, validHash, secret);
+      const result = verifier.verifyHmacSignature(
+        tamperedData,
+        validHash,
+        secret,
+      );
       expect(result).toBe(false);
     });
 
     it('should return false for incorrect secret', () => {
       const validHash = computeValidHash(dataObj, secret);
-      const result = verifier.verifyHmacSignature(dataObj, validHash, 'wrong_secret');
+      const result = verifier.verifyHmacSignature(
+        dataObj,
+        validHash,
+        'wrong_secret',
+      );
       expect(result).toBe(false);
     });
 
     it('should return false if expectedHash or secret is missing', () => {
-      expect(verifier.verifyHmacSignature(dataObj, undefined, secret)).toBe(false);
-      expect(verifier.verifyHmacSignature(dataObj, 'somehash', undefined)).toBe(false);
+      expect(verifier.verifyHmacSignature(dataObj, undefined, secret)).toBe(
+        false,
+      );
+      expect(verifier.verifyHmacSignature(dataObj, 'somehash', undefined)).toBe(
+        false,
+      );
     });
   });
 
   describe('isIpAllowed', () => {
     it('should allow IP when in allowlist', () => {
-      expect(verifier.isIpAllowed('192.168.1.10', ['192.168.1.10', '10.0.0.1'])).toBe(true);
+      expect(
+        verifier.isIpAllowed('192.168.1.10', ['192.168.1.10', '10.0.0.1']),
+      ).toBe(true);
     });
 
     it('should normalize IPv4-mapped IPv6 address', () => {
-      expect(verifier.isIpAllowed('::ffff:192.168.1.10', ['192.168.1.10'])).toBe(true);
+      expect(
+        verifier.isIpAllowed('::ffff:192.168.1.10', ['192.168.1.10']),
+      ).toBe(true);
     });
 
     it('should allow localhost in development/test', () => {
@@ -61,7 +83,9 @@ describe('WebhooksVerifier', () => {
     });
 
     it('should reject unlisted IP', () => {
-      expect(verifier.isIpAllowed('203.0.113.195', ['192.168.1.10'])).toBe(false);
+      expect(verifier.isIpAllowed('203.0.113.195', ['192.168.1.10'])).toBe(
+        false,
+      );
     });
 
     it('should be permissive when allowlist is empty', () => {

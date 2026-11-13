@@ -4,12 +4,12 @@ NestJS integration for the signed [Cray Finance v1 API](https://docs.crayfi.com/
 
 ## Required configuration
 
-Cray v1 uses one merchant Secret Key for every server-side call and collection-webhook HMAC verification. Request signing is optional and adds `X-Signature` on top of Bearer authentication; encrypted sensitive-field storage remains mandatory.
+Cray v1 uses one merchant API key for every server-side call implemented here and for collection-webhook HMAC verification. Request signing is optional and adds `X-Signature` on top of Bearer authentication; encrypted sensitive-field storage remains mandatory.
 
 ```dotenv
 CRAY_ENVIRONMENT=staging
 CRAY_BASE_URL=https://dev-gateman.v3.connectramp.com
-CRAY_API_KEY=lrs_replace_with_merchant_secret_key
+CRAY_API_KEY=replace_with_staging_merchant_api_key
 CRAY_REQUEST_SIGNING_ENABLED=false
 # Required only when signing is enabled:
 CRAY_SIGNING_KEY_ID=
@@ -18,7 +18,9 @@ CRAY_DATA_ENCRYPTION_KEY=secret_from_your_key_manager
 DATABASE_URL=postgresql://...
 ```
 
-The module fails during startup if the v1 Secret Key or encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Signed `collection.*` webhooks use the same Secret Key; unsigned legacy `payin` and `payout` events are confirmed through authoritative API requery.
+The module fails during startup if the v1 merchant API key or encryption key is missing. Signing key ID/private key are required only when `CRAY_REQUEST_SIGNING_ENABLED=true`. Signed `collection.*` webhooks use the same merchant API key; unsigned legacy `payin` and `payout` events are confirmed through authoritative API requery.
+
+`CRAYFI_PUBLIC_KEY` and `CRAYFI_SECRET_KEY` are credentials for Cray payment-initialization/verification endpoints outside this module's implemented product scope. `CRAYFI_MERCHANT_KEY` is not read as a separate runtime variable: place the staging merchant API-key value in `CRAY_API_KEY`.
 
 ## Registration
 
@@ -73,4 +75,4 @@ npm run test:e2e -- --runInBand
 
 The local database is published on host port `5433` to avoid collisions with a system PostgreSQL instance on the conventional `5432` port.
 
-The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires a real v1 test Secret Key; a registered signing key is additionally required when the sandbox merchant has signing enabled.
+The migration encrypts existing account numbers using AES-256-GCM, adds deterministic lookup hashes/last-four fields, redacts legacy webhook payloads, and creates refund persistence. Sandbox contract verification requires a real v1 staging merchant API key; a registered signing key is additionally required when the sandbox merchant has signing enabled.
